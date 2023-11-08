@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <include layout="@layout/activity_banner" />
+
+    <TextView
+        android:id="@+id/tvSummary"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:layout_below="@+id/banner"
+        android:text="Welcome to the Fitness App!"
+        android:textSize="25dp"
+        android:layout_marginTop="35dp"/>
+
+    <!-- Button to access Suggested Workouts -->
+    <Button
+        android:id="@+id/btnSuggestedWorkouts"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Suggested Workouts"
+        android:layout_below="@+id/tvSummary"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="160dp"/>
+
+    <!-- Button to access Workout Sessions -->
+    <Button
+        android:id="@+id/btnWorkoutSessions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Workout Sessions"
+        android:layout_below="@+id/btnSuggestedWorkouts"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="16dp"/>
+
+    <!-- Button to log out (if needed) -->
+    <Button
+        android:id="@+id/btnLogout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Logout"
+        android:layout_below="@+id/btnWorkoutSessions"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="16dp"/>
+</RelativeLayout>

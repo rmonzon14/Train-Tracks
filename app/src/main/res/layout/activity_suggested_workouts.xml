@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <include layout="@layout/activity_banner" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Search for a Workout"
+        android:textSize="40dp"
+        android:id="@+id/tvTitle"
+        android:layout_centerHorizontal="true"
+        android:layout_below="@+id/banner"
+        android:layout_marginTop="16dp"/>
+
+    <EditText
+        android:id="@+id/exerciseName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Exercise Name (optional)"
+        android:layout_centerHorizontal="true"
+        android:layout_below="@+id/tvTitle"
+        android:layout_marginTop="16dp"/>
+
+    <!-- Exercise Type -->
+    <TextView
+        android:id="@+id/exerciseTypeText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="Exercise Type"
+        android:layout_below="@id/exerciseName"/>
+
+    <Spinner
+        android:id="@+id/spinnerExerciseType"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/exerciseTypeText"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="16dp"/>
+
+    <!-- Muscle Group -->
+    <TextView
+        android:id="@+id/exerciseMuscleText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="Muscle Group"
+        android:layout_below="@id/spinnerExerciseType"/>
+
+    <Spinner
+        android:id="@+id/spinnerMuscleGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/exerciseMuscleText"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="16dp"/>
+
+    <!-- Exercise Difficulty -->
+    <TextView
+        android:id="@+id/exerciseDifficultyText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="Difficulty"
+        android:layout_below="@id/spinnerMuscleGroup"/>
+
+    <Spinner
+        android:id="@+id/spinnerExerciseDifficulty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/exerciseDifficultyText"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="16dp"/>
+
+    <!-- Search Button -->
+    <Button
+        android:id="@+id/btnSearch"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Search"
+        android:layout_below="@+id/spinnerExerciseDifficulty"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="16dp"/>
+</RelativeLayout>

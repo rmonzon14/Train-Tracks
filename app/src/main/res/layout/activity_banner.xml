@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Banner with Hamburger Menu -->
+<LinearLayout
+    android:id="@+id/banner"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal">
+
+    <ImageView
+        android:id="@+id/ivTrainTrackslo"
+        android:layout_width="64dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:src="@drawable/train_tracks_logo" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="TrainTracks"
+        android:textSize="35dp"
+        android:fontFamily="serif-monospace"/>
+
+    <ImageView
+        android:id="@+id/ivHamburgerMenu"
+        android:layout_width="59dp"
+        android:layout_height="59dp"
+        android:layout_weight="1"
+        android:src="@drawable/hamburger_menu_icon" />
+</LinearLayout>
