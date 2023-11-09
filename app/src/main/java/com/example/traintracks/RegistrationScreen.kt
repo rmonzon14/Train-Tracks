@@ -54,38 +54,35 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.traintracks.ui.theme.TrainTracksTheme
 import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 
-class SearchScreen : ComponentActivity() {
+class RegistrationScreen : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             TrainTracksTheme {
-                // A surface container using the 'background' color from the theme
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    SearchScreenContent()
+                    RegistrationScreenContent()
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Search(
-    onSearchClicked: (String, String, String, String) -> Unit
+fun Registration(
+    onRegisterClicked: (String, String) -> Unit
 ) {
-    var workoutName by remember { mutableStateOf("") }
-    var workoutType by remember { mutableStateOf("") }
-    var muscleGroup by remember { mutableStateOf("") }
-    var difficulty by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
 
     Image(
-        painter = painterResource(id = R.drawable.search),
+        painter = painterResource(id = R.drawable.registration),
         contentDescription = null,
         contentScale = ContentScale.FillBounds,
         modifier = Modifier
@@ -107,29 +104,22 @@ fun Search(
                 .size(100.dp)
         )
         Text(
-            text = "Workout Search",
+            text = "TrainTracks",
             color = Color.White,
             fontSize = 50.sp,
             fontWeight = FontWeight.ExtraBold
         )
-        WorkoutNameField(
-            value = workoutName,
-            onChange = { workoutName = it },
+        RegistrationUsernameField(
+            value = username,
+            onChange = { username = it },
         )
-        WorkoutTypeField(
-            value = workoutType,
-            onChange = { workoutType = it },
-        )
-        MuscleGroupField(
-            value = muscleGroup,
-            onChange = { muscleGroup = it },
-        )
-        DifficultyField(
-            value = difficulty,
-            onChange = { difficulty = it },
+        RegistrationPasswordField(
+            value = password,
+            onChange = { password = it },
+            submit = { onRegisterClicked(username, password) },
         )
         Button(
-            onClick = { onSearchClicked(workoutName, workoutType, muscleGroup, difficulty) },
+            onClick = { onRegisterClicked(username, password) },
             shape = RoundedCornerShape(5.dp),
             enabled = true,
             modifier = Modifier
@@ -141,7 +131,7 @@ fun Search(
             )
         ) {
             Text(
-                text = "Search",
+                text = "Register",
                 fontSize = 20.sp,
                 color = Color.Black
             )
@@ -151,7 +141,7 @@ fun Search(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WorkoutNameField(
+fun RegistrationUsernameField(
     value: String,
     onChange: (String) -> Unit
 ) {
@@ -179,8 +169,8 @@ fun WorkoutNameField(
         ),
         singleLine = true,
         leadingIcon = leadingIcon,
-        placeholder = { Text("Enter workout name", color = Color.White) },
-        label = { Text("Workout Name", color = Color.White) },
+        placeholder = { Text("Enter your username", color = Color.White) },
+        label = { Text("Username", color = Color.White) },
         visualTransformation = VisualTransformation.None,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
         keyboardActions = KeyboardActions(
@@ -191,14 +181,16 @@ fun WorkoutNameField(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WorkoutTypeField(
+fun RegistrationPasswordField(
     value: String,
-    onChange: (String) -> Unit
+    onChange: (String) -> Unit,
+    submit: () -> Unit,
 ) {
-    val focusManager = LocalFocusManager.current
+    var isPasswordVisible by remember { mutableStateOf(false) }
+
     val leadingIcon = @Composable {
         Icon(
-            Icons.Default.Person,
+            Icons.Default.Lock,
             contentDescription = "",
             tint = Color.White
         )
@@ -217,115 +209,31 @@ fun WorkoutTypeField(
             focusedIndicatorColor = MaterialTheme.colorScheme.primary,
             unfocusedIndicatorColor = MaterialTheme.colorScheme.primary
         ),
-        singleLine = true,
         leadingIcon = leadingIcon,
-        placeholder = { Text("Enter workout type", color = Color.White) },
-        label = { Text("Workout Type", color = Color.White) },
-        visualTransformation = VisualTransformation.None,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-        keyboardActions = KeyboardActions(
-            onNext = { focusManager.moveFocus(FocusDirection.Down) }
-        )
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun MuscleGroupField(
-    value: String,
-    onChange: (String) -> Unit
-) {
-    val focusManager = LocalFocusManager.current
-    val leadingIcon = @Composable {
-        Icon(
-            Icons.Default.Person,
-            contentDescription = "",
-            tint = Color.White
-        )
-    }
-
-    TextField(
-        value = value,
-        onValueChange = onChange,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(8.dp),
-        colors = TextFieldDefaults.textFieldColors(
-            containerColor = Color.Transparent,
-            textColor = Color.White,
-            cursorColor = MaterialTheme.colorScheme.primary,
-            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-            unfocusedIndicatorColor = MaterialTheme.colorScheme.primary
+        keyboardOptions = KeyboardOptions(
+            imeAction = ImeAction.Done,
+            keyboardType = KeyboardType.Password
         ),
-        singleLine = true,
-        leadingIcon = leadingIcon,
-        placeholder = { Text("Enter muscle group", color = Color.White) },
-        label = { Text("Muscle Group", color = Color.White) },
-        visualTransformation = VisualTransformation.None,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
         keyboardActions = KeyboardActions(
-            onNext = { focusManager.moveFocus(FocusDirection.Down) }
-        )
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DifficultyField(
-    value: String,
-    onChange: (String) -> Unit
-) {
-    val focusManager = LocalFocusManager.current
-    val leadingIcon = @Composable {
-        Icon(
-            Icons.Default.Person,
-            contentDescription = "",
-            tint = Color.White
-        )
-    }
-
-    TextField(
-        value = value,
-        onValueChange = onChange,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(8.dp),
-        colors = TextFieldDefaults.textFieldColors(
-            containerColor = Color.Transparent,
-            textColor = Color.White,
-            cursorColor = MaterialTheme.colorScheme.primary,
-            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-            unfocusedIndicatorColor = MaterialTheme.colorScheme.primary
+            onDone = { submit() }
         ),
+        placeholder = { Text("Enter your password", color = Color.White) },
+        label = { Text("Password", color = Color.White) },
         singleLine = true,
-        leadingIcon = leadingIcon,
-        placeholder = { Text("Enter difficulty level", color = Color.White) },
-        label = { Text("Difficulty", color = Color.White) },
-        visualTransformation = VisualTransformation.None,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(
-            onDone = { focusManager.clearFocus() }
-        )
+        visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation()
     )
 }
-
-
 
 @Preview
 @Composable
-fun SearchScreenContent() {
-    var searchClicked by remember { mutableStateOf(false) }
+fun RegistrationScreenContent() {
+    var registered by remember { mutableStateOf(false) }
 
-    if (searchClicked) {
-        // Add search action later
+    if (registered) {
     } else {
-        Search { workoutName, workoutType, muscleGroup, difficulty ->
-            // Add logic to handle search action
-            // Preview selection in logs
-            println("Workout Name: $workoutName, Workout Type: $workoutType, Muscle Group: $muscleGroup, Difficulty: $difficulty")
-            // Set searchClicked to true
-            searchClicked = true
+        Registration { username, password ->
+            println("Username: $username, Password: $password")
+            registered = true
         }
     }
 }
-
