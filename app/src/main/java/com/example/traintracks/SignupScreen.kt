@@ -21,6 +21,7 @@ import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
@@ -55,6 +56,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.traintracks.ui.theme.TrainTracksTheme
 import androidx.compose.runtime.*
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -81,20 +84,33 @@ class SignupScreen : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Registration(
-    onRegisterClicked: (String, String) -> Unit
+fun SignUp(
+    onRegisterClicked: (String, String, String) -> Unit
 ) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
 
-    Image(
-        painter = painterResource(id = R.drawable.registration),
-        contentDescription = null,
-        contentScale = ContentScale.FillBounds,
-        modifier = Modifier
-            .fillMaxSize()
-            .alpha(0.3f)
-    )
+    Box (
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.signup),
+            contentDescription = null,
+
+            modifier = Modifier
+                .fillMaxSize()
+                .drawWithContent {
+                    drawContent()
+                    drawRect(
+                        color = Color.Black.copy(alpha = 0.8f),
+                        blendMode = BlendMode.Darken
+                    )
+                },
+            contentScale = ContentScale.Crop,
+        )
+    }
+
     Column(
         Modifier
             .padding(24.dp)
@@ -102,30 +118,28 @@ fun Registration(
         verticalArrangement = Arrangement.spacedBy(12.dp, alignment = Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(
-            painter = painterResource(id = R.drawable.baseline_fitness_center_24),
-            contentDescription = "",
-            tint = Color.White,
-            modifier = Modifier
-                .size(100.dp)
-        )
         Text(
-            text = "TrainTracks",
+            text = "Sign Up",
             color = Color.White,
             fontSize = 50.sp,
             fontWeight = FontWeight.ExtraBold
         )
-        RegistrationUsernameField(
+        SignUpUsernameField(
             value = username,
             onChange = { username = it },
         )
-        RegistrationPasswordField(
+        SignUpPasswordField(
             value = password,
             onChange = { password = it },
-            submit = { onRegisterClicked(username, password) },
+            submit = { onRegisterClicked(username, password, confirmPassword) },
+        )
+        SignUpConfirmPasswordField(
+            value = confirmPassword,
+            onChange = { confirmPassword = it },
+            submit = { onRegisterClicked(username, password, confirmPassword) },
         )
         Button(
-            onClick = { onRegisterClicked(username, password) },
+            onClick = { onRegisterClicked(username, password, confirmPassword) },
             shape = RoundedCornerShape(5.dp),
             enabled = true,
             modifier = Modifier
@@ -137,7 +151,7 @@ fun Registration(
             )
         ) {
             Text(
-                text = "Register",
+                text = "Welcome",
                 fontSize = 20.sp,
                 color = Color.Black
             )
@@ -149,7 +163,7 @@ fun Registration(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RegistrationUsernameField(
+fun SignUpUsernameField(
     value: String,
     onChange: (String) -> Unit
 ) {
@@ -189,7 +203,7 @@ fun RegistrationUsernameField(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RegistrationPasswordField(
+fun SignUpPasswordField(
     value: String,
     onChange: (String) -> Unit,
     submit: () -> Unit,
@@ -232,6 +246,51 @@ fun RegistrationPasswordField(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SignUpConfirmPasswordField(
+    value: String,
+    onChange: (String) -> Unit,
+    submit: () -> Unit,
+) {
+    var isPasswordVisible by remember { mutableStateOf(false) }
+
+    val leadingIcon = @Composable {
+        Icon(
+            Icons.Default.Check,
+            contentDescription = "",
+            tint = Color.White
+        )
+    }
+
+    TextField(
+        value = value,
+        onValueChange = onChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        colors = TextFieldDefaults.textFieldColors(
+            containerColor = Color.Transparent,
+            textColor = Color.White,
+            cursorColor = MaterialTheme.colorScheme.primary,
+            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+            unfocusedIndicatorColor = MaterialTheme.colorScheme.primary
+        ),
+        leadingIcon = leadingIcon,
+        keyboardOptions = KeyboardOptions(
+            imeAction = ImeAction.Done,
+            keyboardType = KeyboardType.Password
+        ),
+        keyboardActions = KeyboardActions(
+            onDone = { submit() }
+        ),
+        placeholder = { Text("Confirm your password", color = Color.White) },
+        label = { Text("Confirm Password", color = Color.White) },
+        singleLine = true,
+        visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation()
+    )
+}
+
 @Composable
 fun AnnotatedClickableTextSignup() {
     val currentContext = LocalContext.current
@@ -268,13 +327,13 @@ fun AnnotatedClickableTextSignup() {
 @Preview
 @Composable
 fun SignupScreenContent() {
-    var registered by remember { mutableStateOf(false) }
+    var signedUp by remember { mutableStateOf(false) }
 
-    if (registered) {
+    if (signedUp) {
+        // If successfully signed up, redirect to login page
     } else {
-        Registration { username, password ->
-            println("Username: $username, Password: $password")
-            registered = true
+        SignUp { username, password, confirmPassword ->
+            // Validation
         }
     }
 }

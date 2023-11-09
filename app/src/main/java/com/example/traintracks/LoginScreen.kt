@@ -55,6 +55,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.traintracks.ui.theme.TrainTracksTheme
 import androidx.compose.runtime.*
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -93,13 +95,26 @@ fun Login(
         Font(R.font.crimson)
     )
 
-    Image(
-        painter = painterResource(id = R.drawable.login),
-        contentDescription = null,
-        contentScale = ContentScale.FillBounds,
-        modifier = Modifier
-            .fillMaxSize()
-    )
+    Box (
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.login),
+            contentDescription = null,
+
+            modifier = Modifier
+                .fillMaxSize()
+                .drawWithContent {
+                    drawContent()
+                    drawRect(
+                        color = Color.Black.copy(alpha = 0.6f),
+                        blendMode = BlendMode.Darken
+                    )
+                },
+            contentScale = ContentScale.Crop,
+        )
+    }
+
     Column(
         Modifier
             .padding(24.dp)

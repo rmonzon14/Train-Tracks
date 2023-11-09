@@ -309,8 +309,6 @@ fun DifficultyField(
     )
 }
 
-
-
 @Preview
 @Composable
 fun SearchScreenContent() {

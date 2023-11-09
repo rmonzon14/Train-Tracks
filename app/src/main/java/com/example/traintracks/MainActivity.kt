@@ -11,10 +11,12 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -65,6 +67,11 @@ fun bottomNavBar() {
             unselectedIcon = Icons.Outlined.Home,
         ),
         BottomNavigationItem(
+            title = "Workout",
+            selectedIcon = Icons.Filled.Star,
+            unselectedIcon = Icons.Outlined.Star,
+        ),
+        BottomNavigationItem(
             title = "Profile",
             selectedIcon = Icons.Filled.Person,
             unselectedIcon = Icons.Outlined.Person,
@@ -88,7 +95,7 @@ fun bottomNavBar() {
                         selected = selectedItemIndex == index,
                         onClick = {
                             selectedItemIndex = index
-                            // navController.navigate(item.title)
+
                         },
                         label = {
                             Text(text = item.title)
