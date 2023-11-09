@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
@@ -31,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.traintracks.ui.theme.TrainTracksTheme
@@ -50,6 +52,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@Preview(showBackground = true)
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,7 +62,6 @@ fun bottomNavBar() {
             title = "Home",
             selectedIcon = Icons.Filled.Home,
             unselectedIcon = Icons.Outlined.Home,
-
         ),
         BottomNavigationItem(
             title = "Profile",
@@ -75,38 +77,32 @@ fun bottomNavBar() {
     var selectedItemIndex by rememberSaveable {
         mutableStateOf(0)
     }
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Scaffold(
-            bottomBar = {
-                NavigationBar {
-                    items.forEachIndexed { index, item ->
-                        NavigationBarItem(
-                            selected = selectedItemIndex == index,
-                            onClick = {
-                                selectedItemIndex = index
-                                // navController.navigate(item.title)
-                            },
-                            label = {
-                                Text(text = item.title)
-                            },
-                            alwaysShowLabel = false,
-                            icon = {
-                                Icon(
-                                    imageVector = if (index == selectedItemIndex) {
-                                        item.selectedIcon
-                                    } else item.unselectedIcon,
-                                    contentDescription = item.title
-                                )
-                            }
-                        )
-                    }
+    Scaffold(
+        bottomBar = {
+            NavigationBar {
+                items.forEachIndexed { index, item ->
+                    NavigationBarItem(
+                        selected = selectedItemIndex == index,
+                        onClick = {
+                            selectedItemIndex = index
+                            // navController.navigate(item.title)
+                        },
+                        label = {
+                            Text(text = item.title)
+                        },
+                        alwaysShowLabel = false,
+                        icon = {
+                            Icon(
+                                imageVector = if (index == selectedItemIndex) {
+                                    item.selectedIcon
+                                } else item.unselectedIcon,
+                                contentDescription = item.title
+                            )
+                        }
+                    )
                 }
             }
-        ) {
-
         }
+    ) {
     }
 }
