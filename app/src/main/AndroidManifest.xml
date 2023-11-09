@@ -13,6 +13,26 @@
         android:theme="@style/Theme.TrainTracks"
         tools:targetApi="31">
         <activity
+            android:name=".HomeScreen"
+            android:exported="false"
+            android:label="@string/title_activity_home_screen"
+            android:theme="@style/Theme.TrainTracks" />
+        <activity
+            android:name=".SettingsScreen"
+            android:exported="false"
+            android:label="@string/title_activity_settings_screen"
+            android:theme="@style/Theme.TrainTracks" />
+        <activity
+            android:name=".ProfileScreen"
+            android:exported="false"
+            android:label="@string/title_activity_profile_screen"
+            android:theme="@style/Theme.TrainTracks" />
+        <activity
+            android:name=".WorkoutScreen"
+            android:exported="false"
+            android:label="@string/title_activity_workout_screen"
+            android:theme="@style/Theme.TrainTracks" />
+        <activity
             android:name=".SignupScreen"
             android:exported="false"
             android:label="@string/title_activity_signup_screen"

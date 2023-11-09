@@ -3,4 +3,8 @@
     <string name="title_activity_login_screen">LoginScreen</string>
     <string name="title_activity_texst">Texst</string>
     <string name="title_activity_signup_screen">SignupScreen</string>
+    <string name="title_activity_home_screen">HomeScreen</string>
+    <string name="title_activity_workout_screen">WorkoutScreen</string>
+    <string name="title_activity_profile_screen">ProfileScreen</string>
+    <string name="title_activity_settings_screen">SettingsScreen</string>
 </resources>

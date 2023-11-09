@@ -38,7 +38,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.compose.NavHost
 import com.example.traintracks.ui.theme.TrainTracksTheme
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 
 data class BottomNavigationItem(
     val title: String,
@@ -85,17 +88,19 @@ fun bottomNavBar() {
     var selectedItemIndex by rememberSaveable {
         mutableStateOf(0)
     }
+
+    val navController = rememberNavController()
+
     Scaffold(
         bottomBar = {
             NavigationBar (
-
             ) {
                 items.forEachIndexed { index, item ->
                     NavigationBarItem(
                         selected = selectedItemIndex == index,
                         onClick = {
                             selectedItemIndex = index
-
+                            navController.navigate(item.title)
                         },
                         label = {
                             Text(text = item.title)
@@ -115,4 +120,24 @@ fun bottomNavBar() {
         }
     ) {
     }
+
+    NavHost(navController = navController, startDestination = "Home") {
+        composable("Home") {
+            HomeScreen(navController)
+        }
+        composable("Workout") {
+            WorkoutScreen(navController)
+        }
+        composable("Profile") {
+            ProfileScreen(navController)
+        }
+        composable("Settings") {
+            SettingsScreen(navController)
+        }
+    }
 }
+
+
+
+
+
