@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -55,8 +56,15 @@ import androidx.compose.ui.unit.sp
 import com.example.traintracks.ui.theme.TrainTracksTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
+import com.example.traintracks.ui.theme.Typography
+import java.time.format.TextStyle
 
 class LoginScreen : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -80,6 +88,10 @@ fun Login(
 ) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+
+    val MyCustomFont = FontFamily(
+        Font(R.font.crimson)
+    )
 
     Image(
         painter = painterResource(id = R.drawable.login),
@@ -106,7 +118,8 @@ fun Login(
             text = "TrainTracks",
             color = Color.White,
             fontSize = 50.sp,
-            fontWeight = FontWeight.ExtraBold
+            fontWeight = FontWeight.ExtraBold,
+            fontFamily = MyCustomFont
         )
         UsernameField(
             value = username,
@@ -135,6 +148,8 @@ fun Login(
                 color = Color.Black
             )
         }
+
+        AnnotatedClickableText()
     }
 }
 
@@ -224,20 +239,55 @@ fun PasswordField(
     )
 }
 
+@Composable
+fun AnnotatedClickableText() {
+    val currentContext = LocalContext.current
+
+    ClickableText(
+        text = buildAnnotatedString {
+            val fullStr = "Don't have an account? Create one"
+            val startIndex = fullStr.indexOf("Create one")
+            val endIndex = startIndex + 10
+            withStyle(
+                style = SpanStyle(
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 18.sp
+                )
+            ) {
+                append(fullStr)
+            }
+            addStyle(
+                style = SpanStyle(
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    textDecoration = TextDecoration.Underline
+                ),
+                start = startIndex, end = endIndex
+            )
+        },
+        onClick = {
+            val intent = Intent(currentContext, RegistrationScreen::class.java)
+            currentContext.startActivity(intent)
+        }
+    )
+}
+
 @Preview
 @Composable
 fun LoginScreenContent() {
     var loggedIn by remember { mutableStateOf(false) }
 
+    val currentContext = LocalContext.current
+
     if (loggedIn) {
-        val intent = Intent(LocalContext.current, MainActivity::class.java)
-        LocalContext.current.startActivity(intent)
+        val intent = Intent(currentContext, MainActivity::class.java)
+        currentContext.startActivity(intent)
     } else {
         Login { username, password ->
             if (username == "me" && password == "1234") {
                 loggedIn = true
             } else {
-             //   Toast.makeText(LocalContext.current, "Wrong Credentials", Toast.LENGTH_SHORT).show()
+                Toast.makeText(currentContext, "Wrong Credentials", Toast.LENGTH_SHORT).show()
             }
         }
     }
