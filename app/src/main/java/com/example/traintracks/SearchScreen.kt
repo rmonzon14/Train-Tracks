@@ -77,10 +77,11 @@ class SearchScreen : ComponentActivity() {
 
 @Composable
 fun Search(
-    onSearchClicked: (String, String, String) -> Unit
+    onSearchClicked: (String, String, String, String) -> Unit
 ) {
     var workoutName by remember { mutableStateOf("") }
     var workoutType by remember { mutableStateOf("") }
+    var muscleGroup by remember { mutableStateOf("") }
     var difficulty by remember { mutableStateOf("") }
 
     Image(
@@ -89,6 +90,7 @@ fun Search(
         contentScale = ContentScale.FillBounds,
         modifier = Modifier
             .fillMaxSize()
+            .alpha(0.3f)
     )
     Column(
         Modifier
@@ -118,12 +120,16 @@ fun Search(
             value = workoutType,
             onChange = { workoutType = it },
         )
+        MuscleGroupField(
+            value = muscleGroup,
+            onChange = { muscleGroup = it },
+        )
         DifficultyField(
             value = difficulty,
             onChange = { difficulty = it },
         )
         Button(
-            onClick = { onSearchClicked(workoutName, workoutType, difficulty) },
+            onClick = { onSearchClicked(workoutName, workoutType, muscleGroup, difficulty) },
             shape = RoundedCornerShape(5.dp),
             enabled = true,
             modifier = Modifier
@@ -225,6 +231,46 @@ fun WorkoutTypeField(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+fun MuscleGroupField(
+    value: String,
+    onChange: (String) -> Unit
+) {
+    val focusManager = LocalFocusManager.current
+    val leadingIcon = @Composable {
+        Icon(
+            Icons.Default.Person,
+            contentDescription = "",
+            tint = Color.White
+        )
+    }
+
+    TextField(
+        value = value,
+        onValueChange = onChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        colors = TextFieldDefaults.textFieldColors(
+            containerColor = Color.Transparent,
+            textColor = Color.White,
+            cursorColor = MaterialTheme.colorScheme.primary,
+            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+            unfocusedIndicatorColor = MaterialTheme.colorScheme.primary
+        ),
+        singleLine = true,
+        leadingIcon = leadingIcon,
+        placeholder = { Text("Enter muscle group", color = Color.White) },
+        label = { Text("Muscle Group", color = Color.White) },
+        visualTransformation = VisualTransformation.None,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+        keyboardActions = KeyboardActions(
+            onNext = { focusManager.moveFocus(FocusDirection.Down) }
+        )
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 fun DifficultyField(
     value: String,
     onChange: (String) -> Unit
@@ -273,10 +319,10 @@ fun SearchScreenContent() {
     if (searchClicked) {
         // Add search action later
     } else {
-        Search { workoutName, workoutType, difficulty ->
+        Search { workoutName, workoutType, muscleGroup, difficulty ->
             // Add logic to handle search action
             // Preview selection in terminal
-            println("Workout Name: $workoutName, Workout Type: $workoutType, Difficulty: $difficulty")
+            println("Workout Name: $workoutName, Workout Type: $workoutType, Muscle Group: $muscleGroup, Difficulty: $difficulty")
             // Set searchClicked to true
             searchClicked = true
         }
