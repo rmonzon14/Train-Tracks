@@ -149,7 +149,7 @@ fun Login(
             )
         }
 
-        AnnotatedClickableText()
+        AnnotatedClickableTextLogin()
     }
 }
 
@@ -240,7 +240,7 @@ fun PasswordField(
 }
 
 @Composable
-fun AnnotatedClickableText() {
+fun AnnotatedClickableTextLogin() {
     val currentContext = LocalContext.current
 
     ClickableText(
@@ -266,7 +266,7 @@ fun AnnotatedClickableText() {
             )
         },
         onClick = {
-            val intent = Intent(currentContext, RegistrationScreen::class.java)
+            val intent = Intent(currentContext, SignupScreen::class.java)
             currentContext.startActivity(intent)
         }
     )

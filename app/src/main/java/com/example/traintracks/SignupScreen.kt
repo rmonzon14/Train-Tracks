@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -54,10 +55,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.traintracks.ui.theme.TrainTracksTheme
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 
-class RegistrationScreen : ComponentActivity() {
+class SignupScreen : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -66,7 +72,7 @@ class RegistrationScreen : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    RegistrationScreenContent()
+                    SignupScreenContent()
                 }
             }
         }
@@ -136,6 +142,8 @@ fun Registration(
                 color = Color.Black
             )
         }
+
+        AnnotatedClickableTextSignup()
     }
 }
 
@@ -224,9 +232,42 @@ fun RegistrationPasswordField(
     )
 }
 
+@Composable
+fun AnnotatedClickableTextSignup() {
+    val currentContext = LocalContext.current
+
+    ClickableText(
+        text = buildAnnotatedString {
+            val fullStr = "Already have an account? Login"
+            val startIndex = fullStr.indexOf("Login")
+            val endIndex = startIndex + 5
+            withStyle(
+                style = SpanStyle(
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 18.sp
+                )
+            ) {
+                append(fullStr)
+            }
+            addStyle(
+                style = SpanStyle(
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    textDecoration = TextDecoration.Underline
+                ),
+                start = startIndex, end = endIndex
+            )
+        },
+        onClick = {
+            val intent = Intent(currentContext, LoginScreen::class.java)
+            currentContext.startActivity(intent)
+        }
+    )
+}
+
 @Preview
 @Composable
-fun RegistrationScreenContent() {
+fun SignupScreenContent() {
     var registered by remember { mutableStateOf(false) }
 
     if (registered) {
