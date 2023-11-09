@@ -20,8 +20,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -54,6 +58,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.traintracks.ui.theme.TrainTracksTheme
 import androidx.compose.runtime.*
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -84,14 +90,25 @@ fun Search(
     var muscleGroup by remember { mutableStateOf("") }
     var difficulty by remember { mutableStateOf("") }
 
-    Image(
-        painter = painterResource(id = R.drawable.search),
-        contentDescription = null,
-        contentScale = ContentScale.FillBounds,
-        modifier = Modifier
-            .fillMaxSize()
-            .alpha(0.3f)
-    )
+    Box (
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.search),
+            contentDescription = null,
+
+            modifier = Modifier
+                .fillMaxSize()
+                .drawWithContent {
+                    drawContent()
+                    drawRect(
+                        color = Color.Black.copy(alpha = 0.8f),
+                        blendMode = BlendMode.Darken
+                    )
+                },
+            contentScale = ContentScale.Crop,
+        )
+    }
     Column(
         Modifier
             .padding(24.dp)
@@ -99,13 +116,6 @@ fun Search(
         verticalArrangement = Arrangement.spacedBy(12.dp, alignment = Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(
-            painter = painterResource(id = R.drawable.baseline_fitness_center_24),
-            contentDescription = "",
-            tint = Color.White,
-            modifier = Modifier
-                .size(100.dp)
-        )
         Text(
             text = "Workout Search",
             color = Color.White,
@@ -158,7 +168,7 @@ fun WorkoutNameField(
     val focusManager = LocalFocusManager.current
     val leadingIcon = @Composable {
         Icon(
-            Icons.Default.Person,
+            Icons.Default.Edit,
             contentDescription = "",
             tint = Color.White
         )
@@ -198,7 +208,7 @@ fun WorkoutTypeField(
     val focusManager = LocalFocusManager.current
     val leadingIcon = @Composable {
         Icon(
-            Icons.Default.Person,
+            Icons.Default.List,
             contentDescription = "",
             tint = Color.White
         )
@@ -238,7 +248,7 @@ fun MuscleGroupField(
     val focusManager = LocalFocusManager.current
     val leadingIcon = @Composable {
         Icon(
-            Icons.Default.Person,
+            Icons.Default.Build,
             contentDescription = "",
             tint = Color.White
         )
@@ -278,7 +288,7 @@ fun DifficultyField(
     val focusManager = LocalFocusManager.current
     val leadingIcon = @Composable {
         Icon(
-            Icons.Default.Person,
+            Icons.Default.Warning,
             contentDescription = "",
             tint = Color.White
         )
