@@ -132,7 +132,7 @@ fun Login(
         Text (
             text = "TrainTracks",
             color = Color.White,
-            fontSize = 50.sp,
+            fontSize = 55.sp,
             fontWeight = FontWeight.ExtraBold,
             fontFamily = MyCustomFont
         )

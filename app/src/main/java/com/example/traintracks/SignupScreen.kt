@@ -85,7 +85,7 @@ class SignupScreen : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignUp(
-    onRegisterClicked: (String, String, String) -> Unit
+    onSignUpClicked: (String, String, String) -> Unit
 ) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -121,7 +121,7 @@ fun SignUp(
         Text(
             text = "Sign Up",
             color = Color.White,
-            fontSize = 50.sp,
+            fontSize = 55.sp,
             fontWeight = FontWeight.ExtraBold
         )
         SignUpUsernameSection(
@@ -131,15 +131,15 @@ fun SignUp(
         SignUpPasswordSection(
             value = password,
             onChange = { password = it },
-            submit = { onRegisterClicked(username, password, confirmPassword) },
+            submit = { onSignUpClicked(username, password, confirmPassword) },
         )
         SignUpConfirmPasswordSection(
             value = confirmPassword,
             onChange = { confirmPassword = it },
-            submit = { onRegisterClicked(username, password, confirmPassword) },
+            submit = { onSignUpClicked(username, password, confirmPassword) },
         )
         Button(
-            onClick = { onRegisterClicked(username, password, confirmPassword) },
+            onClick = { onSignUpClicked(username, password, confirmPassword) },
             shape = RoundedCornerShape(5.dp),
             enabled = true,
             modifier = Modifier
