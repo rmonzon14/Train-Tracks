@@ -40,8 +40,7 @@ fun HomeScreen(navController: NavController) {
         )
         Button(
             onClick = {
-                val intent = Intent(currentContext, SearchScreen::class.java)
-                currentContext.startActivity(intent)
+                navController.navigate("SearchScreen")
             },
             shape = RoundedCornerShape(5.dp),
             enabled = true,

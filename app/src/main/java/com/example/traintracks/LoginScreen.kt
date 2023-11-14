@@ -78,7 +78,7 @@ class LoginScreen : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    LoginScreenContent()
+                    DisplayLoginScreen()
                 }
             }
         }
@@ -136,11 +136,11 @@ fun Login(
             fontWeight = FontWeight.ExtraBold,
             fontFamily = MyCustomFont
         )
-        UsernameField(
+        UsernameSection(
             value = username,
             onChange = { username = it },
         )
-        PasswordField(
+        PasswordSection(
             value = password,
             onChange = { password = it },
             submit = { onLoginClicked(username, password)  },
@@ -171,18 +171,11 @@ fun Login(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UsernameField(
+fun UsernameSection(
     value: String,
     onChange: (String) -> Unit
 ) {
-    val focusManager = LocalFocusManager.current
-    val leadingIcon = @Composable {
-        Icon(
-            Icons.Default.Person,
-            contentDescription = "",
-            tint = Color.White
-        )
-    }
+    val setFocus = LocalFocusManager.current
 
     TextField(
         value = value,
@@ -198,33 +191,31 @@ fun UsernameField(
             unfocusedIndicatorColor = MaterialTheme.colorScheme.primary
         ),
         singleLine = true,
-        leadingIcon = leadingIcon,
+        leadingIcon = @Composable {
+            Icon(
+                Icons.Default.Person,
+                contentDescription = "",
+                tint = Color.White
+            )
+        },
         placeholder = { Text("Enter your username", color = Color.White) },
         label = { Text("Username", color = Color.White) },
         visualTransformation = VisualTransformation.None,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
         keyboardActions = KeyboardActions(
-            onNext = { focusManager.moveFocus(FocusDirection.Down) }
+            onNext = { setFocus.moveFocus(FocusDirection.Down) }
         )
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PasswordField(
+fun PasswordSection(
     value: String,
     onChange: (String) -> Unit,
     submit: () -> Unit,
 ) {
     var isPasswordVisible by remember { mutableStateOf(false) }
-
-    val leadingIcon = @Composable {
-        Icon(
-            Icons.Default.Lock,
-            contentDescription = "",
-            tint = Color.White
-        )
-    }
 
     TextField(
         value = value,
@@ -235,11 +226,14 @@ fun PasswordField(
         colors = TextFieldDefaults.textFieldColors(
             containerColor = Color.Transparent,
             textColor = Color.White,
-            cursorColor = MaterialTheme.colorScheme.primary,
-            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-            unfocusedIndicatorColor = MaterialTheme.colorScheme.primary
         ),
-        leadingIcon = leadingIcon,
+        leadingIcon = @Composable {
+            Icon(
+                Icons.Default.Lock,
+                contentDescription = "",
+                tint = Color.White
+            )
+        },
         keyboardOptions = KeyboardOptions(
             imeAction = ImeAction.Done,
             keyboardType = KeyboardType.Password
@@ -260,8 +254,8 @@ fun AnnotatedClickableTextLogin() {
 
     ClickableText(
         text = buildAnnotatedString {
-            val fullStr = "Don't have an account? Create one"
-            val startIndex = fullStr.indexOf("Create one")
+            val fullString = "Don't have an account? Create one"
+            val startIndex = fullString.indexOf("Create one")
             val endIndex = startIndex + 10
             withStyle(
                 style = SpanStyle(
@@ -269,13 +263,13 @@ fun AnnotatedClickableTextLogin() {
                     fontSize = 18.sp
                 )
             ) {
-                append(fullStr)
+                append(fullString)
             }
             addStyle(
                 style = SpanStyle(
+                    textDecoration = TextDecoration.Underline,
                     color = Color.White,
-                    fontSize = 18.sp,
-                    textDecoration = TextDecoration.Underline
+                    fontSize = 18.sp
                 ),
                 start = startIndex, end = endIndex
             )
@@ -289,18 +283,18 @@ fun AnnotatedClickableTextLogin() {
 
 @Preview
 @Composable
-fun LoginScreenContent() {
-    var loggedIn by remember { mutableStateOf(false) }
+fun DisplayLoginScreen() {
+    var isLoggedIn by remember { mutableStateOf(false) }
 
     val currentContext = LocalContext.current
 
-    if (loggedIn) {
+    if (isLoggedIn) {
         val intent = Intent(currentContext, MainActivity::class.java)
         currentContext.startActivity(intent)
     } else {
         Login { username, password ->
             if (username == "me" && password == "1234") {
-                loggedIn = true
+                isLoggedIn = true
             } else {
                 Toast.makeText(currentContext, "Wrong Credentials", Toast.LENGTH_SHORT).show()
             }

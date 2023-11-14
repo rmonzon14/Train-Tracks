@@ -75,7 +75,7 @@ class SignupScreen : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    SignupScreenContent()
+                    DisplaySignupScreen()
                 }
             }
         }
@@ -124,16 +124,16 @@ fun SignUp(
             fontSize = 50.sp,
             fontWeight = FontWeight.ExtraBold
         )
-        SignUpUsernameField(
+        SignUpUsernameSection(
             value = username,
             onChange = { username = it },
         )
-        SignUpPasswordField(
+        SignUpPasswordSection(
             value = password,
             onChange = { password = it },
             submit = { onRegisterClicked(username, password, confirmPassword) },
         )
-        SignUpConfirmPasswordField(
+        SignUpConfirmPasswordSection(
             value = confirmPassword,
             onChange = { confirmPassword = it },
             submit = { onRegisterClicked(username, password, confirmPassword) },
@@ -163,18 +163,11 @@ fun SignUp(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SignUpUsernameField(
+fun SignUpUsernameSection(
     value: String,
     onChange: (String) -> Unit
 ) {
-    val focusManager = LocalFocusManager.current
-    val leadingIcon = @Composable {
-        Icon(
-            Icons.Default.Person,
-            contentDescription = "",
-            tint = Color.White
-        )
-    }
+    val setFocus = LocalFocusManager.current
 
     TextField(
         value = value,
@@ -190,33 +183,31 @@ fun SignUpUsernameField(
             unfocusedIndicatorColor = MaterialTheme.colorScheme.primary
         ),
         singleLine = true,
-        leadingIcon = leadingIcon,
+        leadingIcon = @Composable {
+            Icon(
+                Icons.Default.Person,
+                contentDescription = "",
+                tint = Color.White
+            )
+        },
         placeholder = { Text("Enter your username", color = Color.White) },
         label = { Text("Username", color = Color.White) },
         visualTransformation = VisualTransformation.None,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
         keyboardActions = KeyboardActions(
-            onNext = { focusManager.moveFocus(FocusDirection.Down) }
+            onNext = { setFocus.moveFocus(FocusDirection.Down) }
         )
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SignUpPasswordField(
+fun SignUpPasswordSection(
     value: String,
     onChange: (String) -> Unit,
     submit: () -> Unit,
 ) {
     var isPasswordVisible by remember { mutableStateOf(false) }
-
-    val leadingIcon = @Composable {
-        Icon(
-            Icons.Default.Lock,
-            contentDescription = "",
-            tint = Color.White
-        )
-    }
 
     TextField(
         value = value,
@@ -227,11 +218,14 @@ fun SignUpPasswordField(
         colors = TextFieldDefaults.textFieldColors(
             containerColor = Color.Transparent,
             textColor = Color.White,
-            cursorColor = MaterialTheme.colorScheme.primary,
-            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-            unfocusedIndicatorColor = MaterialTheme.colorScheme.primary
         ),
-        leadingIcon = leadingIcon,
+        leadingIcon = @Composable {
+            Icon(
+                Icons.Default.Lock,
+                contentDescription = "",
+                tint = Color.White
+            )
+        },
         keyboardOptions = KeyboardOptions(
             imeAction = ImeAction.Done,
             keyboardType = KeyboardType.Password
@@ -248,20 +242,12 @@ fun SignUpPasswordField(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SignUpConfirmPasswordField(
+fun SignUpConfirmPasswordSection(
     value: String,
     onChange: (String) -> Unit,
     submit: () -> Unit,
 ) {
     var isPasswordVisible by remember { mutableStateOf(false) }
-
-    val leadingIcon = @Composable {
-        Icon(
-            Icons.Default.Check,
-            contentDescription = "",
-            tint = Color.White
-        )
-    }
 
     TextField(
         value = value,
@@ -272,11 +258,14 @@ fun SignUpConfirmPasswordField(
         colors = TextFieldDefaults.textFieldColors(
             containerColor = Color.Transparent,
             textColor = Color.White,
-            cursorColor = MaterialTheme.colorScheme.primary,
-            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-            unfocusedIndicatorColor = MaterialTheme.colorScheme.primary
         ),
-        leadingIcon = leadingIcon,
+        leadingIcon = @Composable {
+            Icon(
+                Icons.Default.Check,
+                contentDescription = "",
+                tint = Color.White
+            )
+        },
         keyboardOptions = KeyboardOptions(
             imeAction = ImeAction.Done,
             keyboardType = KeyboardType.Password
@@ -297,8 +286,8 @@ fun AnnotatedClickableTextSignup() {
 
     ClickableText(
         text = buildAnnotatedString {
-            val fullStr = "Already have an account? Login"
-            val startIndex = fullStr.indexOf("Login")
+            val fullString = "Already have an account? Login"
+            val startIndex = fullString.indexOf("Login")
             val endIndex = startIndex + 5
             withStyle(
                 style = SpanStyle(
@@ -306,13 +295,13 @@ fun AnnotatedClickableTextSignup() {
                     fontSize = 18.sp
                 )
             ) {
-                append(fullStr)
+                append(fullString)
             }
             addStyle(
                 style = SpanStyle(
                     color = Color.White,
-                    fontSize = 18.sp,
-                    textDecoration = TextDecoration.Underline
+                    textDecoration = TextDecoration.Underline,
+                    fontSize = 18.sp
                 ),
                 start = startIndex, end = endIndex
             )
@@ -326,10 +315,10 @@ fun AnnotatedClickableTextSignup() {
 
 @Preview
 @Composable
-fun SignupScreenContent() {
-    var signedUp by remember { mutableStateOf(false) }
+fun DisplaySignupScreen() {
+    var isSignedUp by remember { mutableStateOf(false) }
 
-    if (signedUp) {
+    if (isSignedUp) {
         // If successfully signed up, redirect to login page
     } else {
         SignUp { username, password, confirmPassword ->
