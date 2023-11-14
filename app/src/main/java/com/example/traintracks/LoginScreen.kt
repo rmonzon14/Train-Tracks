@@ -127,7 +127,7 @@ fun Login(
             contentDescription = "",
             tint = Color.White,
             modifier = Modifier
-                .size(100.dp)
+                .size(105.dp)
         )
         Text (
             text = "TrainTracks",
