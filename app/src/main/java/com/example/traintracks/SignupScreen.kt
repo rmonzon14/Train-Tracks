@@ -274,7 +274,7 @@ fun SignUpConfirmPasswordSection(
             onDone = { submit() }
         ),
         placeholder = { Text("Confirm your password", color = Color.White) },
-        label = { Text("Confirm Password", color = Color.White) },
+        label = { Text("Confirm your Password", color = Color.White) },
         singleLine = true,
         visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation()
     )
