@@ -41,6 +41,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarColors
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +62,8 @@ import androidx.compose.ui.unit.sp
 import com.example.traintracks.R
 import com.example.traintracks.SearchApiService
 import com.example.traintracks.ui.theme.TrainTracksTheme
+import com.google.firebase.Firebase
+import com.google.firebase.database.database
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -401,16 +404,37 @@ fun DifficultyField(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Results(searchResults: List<com.example.traintracks.SearchResult>) {
+    val currentContext = LocalContext.current
+
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
+        TopAppBar(
+            title = {
+                Text(text = "Go Home")
+            },
+            navigationIcon = {
+                IconButton(
+                    onClick = {
+                        val intent = Intent(currentContext, MainActivity::class.java)
+                        currentContext.startActivity(intent)
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back"
+                    )
+                }
+            }
+        )
         Text(
             text = "Results Screen",
             fontSize = 30.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = Color.Black,
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
@@ -432,10 +456,13 @@ fun Results(searchResults: List<com.example.traintracks.SearchResult>) {
 }
 @Composable
 fun SearchResultItem(result: com.example.traintracks.SearchResult) {
+    var isAddedToDatabase by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp),
+            .padding(8.dp)
+            .background(color = Color.DarkGray),
         shape = RoundedCornerShape(8.dp)
     ) {
         Column(
@@ -473,10 +500,81 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
                 fontSize = 12.sp,
                 color = Color.White
             )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Equipment: ${result.equipment}",
+                fontSize = 12.sp,
+                color = Color.White
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Instructions: ${result.instructions}",
+                fontSize = 12.sp,
+                color = Color.White
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (!isAddedToDatabase) {
+                Button(
+                    onClick = {
+                        // Add the result to the Firebase database here
+                        addToFirebaseDatabase(result)
+                        // Set isAddedToDatabase to true after adding to the database
+                        isAddedToDatabase = true
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.LightGray,
+                        contentColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text(
+                        text = "Add to Workouts",
+                        fontSize = 16.sp,
+                        color = Color.Black
+                    )
+                }
+            } else {
+                Text(
+                    text = "Added to Workouts",
+                    fontSize = 16.sp,
+                    color = Color.Black,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp)
+                )
+            }
         }
     }
 }
 
+private fun addToFirebaseDatabase(result: com.example.traintracks.SearchResult) {
+    // Reference to the root of your Firebase Realtime Database
+    val database = Firebase.database.reference
+
+    // Create a new child under "workouts" node and set the result data
+    val newWorkoutRef = database.child("workouts").push()
+    newWorkoutRef.setValue(result.toMap())
+}
+
+// Add this extension function to convert the SearchResult to a map
+fun com.example.traintracks.SearchResult.toMap(): Map<String, Any?> {
+    return mapOf(
+        "name" to name,
+        "type" to type,
+        "difficulty" to difficulty,
+        "muscle" to muscle,
+        "equipment" to equipment,
+        "instructions" to instructions
+        // Add more fields if necessary
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview

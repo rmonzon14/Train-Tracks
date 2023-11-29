@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "136943295940",
+    "firebase_url": "https://traintracks-ae61c-default-rtdb.firebaseio.com",
     "project_id": "traintracks-ae61c",
     "storage_bucket": "traintracks-ae61c.appspot.com"
   },
