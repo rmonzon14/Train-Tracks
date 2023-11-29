@@ -11,6 +11,6 @@ interface SearchApiService {
         @Query("type") workoutType: String,
         @Query("muscle") muscleGroup: String,
         @Query("difficulty") difficulty: String,
-        @Header("apiKey") apiKey: String
+        @Header("X-Api-Key") apiKey: String
     ): List<SearchResult>
 }
