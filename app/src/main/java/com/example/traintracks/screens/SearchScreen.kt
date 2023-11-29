@@ -561,7 +561,6 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
 }
 
 private fun addToFirebaseDatabase(result: com.example.traintracks.SearchResult) {
-
     val auth = Firebase.auth
     val currentUser = auth.currentUser
 
