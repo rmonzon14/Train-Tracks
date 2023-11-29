@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -26,11 +28,14 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,9 +55,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.traintracks.R
 import com.example.traintracks.SearchApiService
+import com.example.traintracks.SearchResult
 import com.example.traintracks.ui.theme.TrainTracksTheme
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import org.json.JSONArray
 import retrofit2.HttpException
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -75,6 +82,7 @@ class SearchScreen : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Search(
     onSearchClicked: (String, String, String, String) -> Unit
@@ -83,7 +91,7 @@ fun Search(
     var workoutType by remember { mutableStateOf("") }
     var muscleGroup by remember { mutableStateOf("") }
     var difficulty by remember { mutableStateOf("") }
-
+    val currentContext = LocalContext.current
 
     Box (
         modifier = Modifier.fillMaxSize()
@@ -111,6 +119,24 @@ fun Search(
         verticalArrangement = Arrangement.spacedBy(12.dp, alignment = Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+
+        TopAppBar(
+            title = {
+                Text(text = "Go Back")
+            },
+            navigationIcon = {
+                IconButton(
+                    onClick = {
+                        val intent = Intent(currentContext, MainActivity::class.java)
+                        currentContext.startActivity(intent)
+                    }
+                ) {
+                    Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
+                }
+            },
+            modifier = Modifier.background(color = Color.Transparent)
+        )
+
         Text(
             text = "Workout Search",
             color = Color.White,
@@ -366,18 +392,19 @@ fun DifficultyField(
         }
     }
 }
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
 fun SearchScreenContent() {
     var searchClicked by remember { mutableStateOf(false) }
     val currentContext = LocalContext.current
-
+    var searchResults by remember { mutableStateOf<List<SearchResult>>(emptyList()) }
 
     if (searchClicked) {
         val intent = Intent(currentContext, SearchScreen::class.java)
         currentContext.startActivity(intent)
     } else {
-        Search { workoutName, workoutType, muscleGroup, difficulty ->
+            Search { workoutName, workoutType, muscleGroup, difficulty ->
             val retrofit = Retrofit.Builder()
                 .baseUrl("https://api.api-ninjas.com/v1/") // Replace with your API base URL
                 .addConverterFactory(GsonConverterFactory.create())
@@ -387,7 +414,7 @@ fun SearchScreenContent() {
 
             GlobalScope .launch {
                 try {
-                    val searchResults = searchApiService.searchWorkouts(
+                    searchResults = searchApiService.searchWorkouts(
                             workoutName,
                             workoutType,
                             muscleGroup,
