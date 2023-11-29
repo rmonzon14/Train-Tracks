@@ -1,4 +1,4 @@
-package com.example.traintracks
+package com.example.traintracks.screens
 
 import android.content.Intent
 import android.os.Bundle
@@ -24,10 +24,24 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.traintracks.ui.theme.TrainTracksTheme
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
+
+private lateinit var auth : FirebaseAuth
 
 @Composable
-fun HomeScreen(navController: NavController) {
+fun ProfileScreen(navController: NavController) {
+    var auth = Firebase.auth
+    var currentUser = auth.currentUser
+
     val currentContext = LocalContext.current
+
+    if (currentUser == null) {
+        val intent = Intent(currentContext, LoginScreen::class.java)
+        currentContext.startActivity(intent)
+    }
+
     Column(
         Modifier
             .padding(24.dp)
@@ -35,12 +49,11 @@ fun HomeScreen(navController: NavController) {
         verticalArrangement =  Arrangement.spacedBy(12.dp, alignment = Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = "Home Screen",
-        )
         Button(
             onClick = {
-                val intent = Intent(currentContext, SearchScreen::class.java)
+                auth.signOut()
+
+                val intent = Intent(currentContext, LoginScreen::class.java)
                 currentContext.startActivity(intent)
             },
             shape = RoundedCornerShape(5.dp),
@@ -54,7 +67,7 @@ fun HomeScreen(navController: NavController) {
             )
         ){
             Text(
-                text = "Find a new Workout"
+                text = "Logout"
             )
         }
     }

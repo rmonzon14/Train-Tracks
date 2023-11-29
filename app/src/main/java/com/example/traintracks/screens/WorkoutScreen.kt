@@ -1,4 +1,4 @@
-package com.example.traintracks
+package com.example.traintracks.screens
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
