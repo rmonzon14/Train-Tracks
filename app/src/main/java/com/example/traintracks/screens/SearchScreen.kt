@@ -1,4 +1,4 @@
-package com.example.traintracks
+package com.example.traintracks.screens
 
 import android.content.Intent
 import android.os.Bundle
@@ -48,13 +48,13 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.traintracks.R
+import com.example.traintracks.SearchApiService
 import com.example.traintracks.ui.theme.TrainTracksTheme
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import retrofit2.Retrofit
-import retrofit2.http.GET
-import retrofit2.http.Query
 import retrofit2.converter.gson.GsonConverterFactory
 
 class SearchScreen : ComponentActivity() {

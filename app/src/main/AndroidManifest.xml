@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.INTERNET" />
+    
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -13,32 +15,37 @@
         android:theme="@style/Theme.TrainTracks"
         tools:targetApi="31">
         <activity
-            android:name=".HomeScreen"
+            android:name=".screens.HomeScreen"
             android:exported="false"
             android:label="@string/title_activity_home_screen"
             android:theme="@style/Theme.TrainTracks" />
         <activity
-            android:name=".SettingsScreen"
+            android:name=".screens.SettingsScreen"
             android:exported="false"
             android:label="@string/title_activity_settings_screen"
             android:theme="@style/Theme.TrainTracks" />
         <activity
-            android:name=".ProfileScreen"
+            android:name=".screens.ProfileScreen"
             android:exported="false"
             android:label="@string/title_activity_profile_screen"
             android:theme="@style/Theme.TrainTracks" />
         <activity
-            android:name=".WorkoutScreen"
+            android:name=".screens.WorkoutScreen"
             android:exported="false"
             android:label="@string/title_activity_workout_screen"
             android:theme="@style/Theme.TrainTracks" />
         <activity
-            android:name=".SignupScreen"
+            android:name=".screens.SignupScreen"
             android:exported="false"
             android:label="@string/title_activity_signup_screen"
             android:theme="@style/Theme.TrainTracks" />
         <activity
-            android:name=".LoginScreen"
+            android:name=".screens.SearchScreen"
+            android:exported="false"
+            android:label="@string/title_activity_signup_screen"
+            android:theme="@style/Theme.TrainTracks" />
+        <activity
+            android:name=".screens.LoginScreen"
             android:exported="true"
             android:label="@string/title_activity_login_screen"
             android:theme="@style/Theme.TrainTracks">
@@ -49,7 +56,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".MainActivity"
+            android:name=".screens.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.TrainTracks">

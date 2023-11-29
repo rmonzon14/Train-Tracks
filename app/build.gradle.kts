@@ -79,6 +79,7 @@ dependencies {
     implementation("com.google.firebase:firebase-auth:22.3.0")
 
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
+    implementation("com.google.firebase:firebase-auth-ktx:22.3.0")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
