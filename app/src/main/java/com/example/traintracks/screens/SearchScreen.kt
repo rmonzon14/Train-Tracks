@@ -200,7 +200,6 @@ fun WorkoutTypeField(
     value: String,
     onChange: (String) -> Unit
 ) {
-    val context = LocalContext.current
     val workoutType = arrayOf(
             "cardio",
             "olympic_weightlifting",
@@ -210,7 +209,7 @@ fun WorkoutTypeField(
             "stretching",
             "strongman")
     var expanded by remember { mutableStateOf(false) }
-    var selectedText by remember { mutableStateOf(workoutType[0]) }
+    var selectedText by remember { mutableStateOf(value) }
 
     Box(
         modifier = Modifier
@@ -225,7 +224,7 @@ fun WorkoutTypeField(
         ) {
             TextField(
                 value = selectedText,
-                onValueChange = {},
+                onValueChange = { },
                 readOnly = true,
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 label = { Text("Workout Type") },
@@ -242,6 +241,7 @@ fun WorkoutTypeField(
                         onClick = {
                             selectedText = item
                             expanded = false
+                            onChange(item)
                         }
                     )
                 }
@@ -256,7 +256,6 @@ fun MuscleGroupField(
     value: String,
     onChange: (String) -> Unit
 ) {
-    val context = LocalContext.current
     val muscle = arrayOf(
             "abdominals",
             "abductors",
@@ -275,7 +274,7 @@ fun MuscleGroupField(
             "traps",
             "triceps")
     var expanded by remember { mutableStateOf(false) }
-    var selectedText by remember { mutableStateOf(muscle[0]) }
+    var selectedText by remember { mutableStateOf(value) }
 
     Box(
         modifier = Modifier
@@ -309,6 +308,7 @@ fun MuscleGroupField(
                         onClick = {
                             selectedText = item
                             expanded = false
+                            onChange(item)
                         }
                     )
                 }
@@ -326,7 +326,7 @@ fun DifficultyField(
     val context = LocalContext.current
     val difficulty = arrayOf("Begginner", "Intermediate", "Expert")
     var expanded by remember { mutableStateOf(false) }
-    var selectedText by remember { mutableStateOf(difficulty[0]) }
+    var selectedText by remember { mutableStateOf(value) }
 
     Box(
         modifier = Modifier
@@ -358,6 +358,7 @@ fun DifficultyField(
                         onClick = {
                             selectedText = item
                             expanded = false
+                            onChange(item)
                         }
                     )
                 }
@@ -376,7 +377,7 @@ fun SearchScreenContent() {
         val intent = Intent(currentContext, SearchScreen::class.java)
         currentContext.startActivity(intent)
     } else {
-        Search { name, type, muscle, difficulty ->
+        Search { workoutName, workoutType, muscleGroup, difficulty ->
             val retrofit = Retrofit.Builder()
                 .baseUrl("https://api.api-ninjas.com/v1/") // Replace with your API base URL
                 .addConverterFactory(GsonConverterFactory.create())
@@ -386,24 +387,25 @@ fun SearchScreenContent() {
 
             GlobalScope .launch {
                 try {
-                    val searchResults = if (name.isNotBlank()) {
+                    val searchResults = if (workoutName.isNotBlank()) {
                         searchApiService.searchWorkouts(
-                            name,
-                            type,
-                            muscle,
+                            workoutName,
+                            workoutType,
+                            muscleGroup,
                             difficulty,
                             "KX79m6HUenAsqfTvt9WydA==ib8FER6nxlcnsxnk")
                     }else {
                         searchApiService.searchWorkouts(
                             null,
-                            type,
-                            muscle,
+                            workoutType,
+                            muscleGroup,
                             difficulty,
                             "KX79m6HUenAsqfTvt9WydA==ib8FER6nxlcnsxnk")
                     }
                     // Handle the search results as needed
-                    Log.i("CHECK_POINT", "onResponse: $searchResults")
-                    //println("Search results: $searchResults")
+                    Log.i("CHECK_POINT", "Params: $workoutName, $workoutType, $muscleGroup, $difficulty  --- onResponse: $searchResults")
+                    searchClicked = true
+
                 } catch (e: HttpException) {
                     val errorBody = e.response()?.errorBody()?.string()
                     //println("HTTP error: ${e.code()}, ${e.message()}, $errorBody")
@@ -419,7 +421,7 @@ fun SearchScreenContent() {
                 }
             }
 
-            println("Workout Name: $name, Workout Type: $type, Muscle Group: $muscle, Difficulty: $difficulty")
+            println("Workout Name: $workoutName, Workout Type: $workoutType, Muscle Group: $muscleGroup, Difficulty: $difficulty")
             // Set searchClicked to true
             searchClicked = true
         }
