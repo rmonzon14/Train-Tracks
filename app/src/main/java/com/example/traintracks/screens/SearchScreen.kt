@@ -387,21 +387,12 @@ fun SearchScreenContent() {
 
             GlobalScope .launch {
                 try {
-                    val searchResults = if (workoutName.isNotBlank()) {
-                        searchApiService.searchWorkouts(
+                    val searchResults = searchApiService.searchWorkouts(
                             workoutName,
                             workoutType,
                             muscleGroup,
                             difficulty,
                             "KX79m6HUenAsqfTvt9WydA==ib8FER6nxlcnsxnk")
-                    }else {
-                        searchApiService.searchWorkouts(
-                            null,
-                            workoutType,
-                            muscleGroup,
-                            difficulty,
-                            "KX79m6HUenAsqfTvt9WydA==ib8FER6nxlcnsxnk")
-                    }
                     // Handle the search results as needed
                     Log.i("CHECK_POINT", "Params: $workoutName, $workoutType, $muscleGroup, $difficulty  --- onResponse: $searchResults")
                     searchClicked = true
