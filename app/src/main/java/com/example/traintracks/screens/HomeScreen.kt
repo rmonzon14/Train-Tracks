@@ -29,6 +29,7 @@ import com.example.traintracks.ui.theme.TrainTracksTheme
 
 @Composable
 fun HomeScreen(navController: NavController) {
+    val currentContext = LocalContext.current
     Column(
         Modifier
             .padding(24.dp)
@@ -41,7 +42,8 @@ fun HomeScreen(navController: NavController) {
         )
         Button(
             onClick = {
-                navController.navigate("SearchScreen")
+                val intent = Intent(currentContext, SearchScreen::class.java)
+                currentContext.startActivity(intent)
             },
             shape = RoundedCornerShape(5.dp),
             enabled = true,
