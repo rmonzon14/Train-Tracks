@@ -1,4 +1,4 @@
-package com.example.traintracks
+package com.example.traintracks.screens
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -19,7 +19,7 @@ import androidx.navigation.NavController
 import com.example.traintracks.ui.theme.TrainTracksTheme
 
 @Composable
-fun ProfileScreen(navController: NavController) {
+fun SettingsScreen(navController: NavController) {
     Column(
         Modifier
             .padding(24.dp)
@@ -28,7 +28,7 @@ fun ProfileScreen(navController: NavController) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Profile Screen",
+            text = "Settings Screen",
         )
     }
 }

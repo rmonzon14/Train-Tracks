@@ -1,52 +1,44 @@
-package com.example.traintracks
+package com.example.traintracks.screens
 
 import android.content.Intent
 import android.os.Bundle
-import android.text.InputType
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldColors
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.VisualTransformation
@@ -60,46 +52,48 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
-import com.example.traintracks.ui.theme.Typography
-import java.time.format.TextStyle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.traintracks.R
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
 
-class LoginScreen : ComponentActivity() {
+class SignupScreen : ComponentActivity() {
+
+    private lateinit var auth: FirebaseAuth
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             TrainTracksTheme {
-                // A surface container using the 'background' color from the theme
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    DisplayLoginScreen()
+                    DisplaySignupScreen()
                 }
             }
         }
     }
 }
-@Composable
-fun Login(
-    onLoginClicked: (String, String) -> Unit
-) {
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
 
-    val MyCustomFont = FontFamily(
-        Font(R.font.crimson)
-    )
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SignUp(
+    onSignUpClicked: (String, String, String) -> Unit
+) {
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
 
     Box (
         modifier = Modifier.fillMaxSize()
     ) {
         Image(
-            painter = painterResource(id = R.drawable.login),
+            painter = painterResource(id = R.drawable.signup),
             contentDescription = null,
 
             modifier = Modifier
@@ -107,7 +101,7 @@ fun Login(
                 .drawWithContent {
                     drawContent()
                     drawRect(
-                        color = Color.Black.copy(alpha = 0.6f),
+                        color = Color.Black.copy(alpha = 0.8f),
                         blendMode = BlendMode.Darken
                     )
                 },
@@ -119,34 +113,31 @@ fun Login(
         Modifier
             .padding(24.dp)
             .fillMaxSize(),
-        verticalArrangement =  Arrangement.spacedBy(12.dp, alignment = Alignment.CenterVertically),
+        verticalArrangement = Arrangement.spacedBy(12.dp, alignment = Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally
-    ){
-        Icon(
-            painter = painterResource(id = R.drawable.baseline_fitness_center_24),
-            contentDescription = "",
-            tint = Color.White,
-            modifier = Modifier
-                .size(105.dp)
-        )
-        Text (
-            text = "TrainTracks",
+    ) {
+        Text(
+            text = "Sign Up",
             color = Color.White,
             fontSize = 55.sp,
-            fontWeight = FontWeight.ExtraBold,
-            fontFamily = MyCustomFont
+            fontWeight = FontWeight.ExtraBold
         )
-        UsernameSection(
-            value = username,
-            onChange = { username = it },
+        SignUpUsernameSection(
+            value = email,
+            onChange = { email = it },
         )
-        PasswordSection(
+        SignUpPasswordSection(
             value = password,
             onChange = { password = it },
-            submit = { onLoginClicked(username, password)  },
+            submit = { onSignUpClicked(email, password, confirmPassword) },
+        )
+        SignUpConfirmPasswordSection(
+            value = confirmPassword,
+            onChange = { confirmPassword = it },
+            submit = { onSignUpClicked(email, password, confirmPassword) },
         )
         Button(
-            onClick = { onLoginClicked(username, password) },
+            onClick = { onSignUpClicked(email, password, confirmPassword) },
             shape = RoundedCornerShape(5.dp),
             enabled = true,
             modifier = Modifier
@@ -158,20 +149,19 @@ fun Login(
             )
         ) {
             Text(
-                text = "Login",
+                text = "SignUp",
                 fontSize = 20.sp,
                 color = Color.Black
             )
         }
 
-        AnnotatedClickableTextLogin()
+        AnnotatedClickableTextSignup()
     }
 }
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UsernameSection(
+fun SignUpUsernameSection(
     value: String,
     onChange: (String) -> Unit
 ) {
@@ -210,7 +200,7 @@ fun UsernameSection(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PasswordSection(
+fun SignUpPasswordSection(
     value: String,
     onChange: (String) -> Unit,
     submit: () -> Unit,
@@ -248,15 +238,55 @@ fun PasswordSection(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnnotatedClickableTextLogin() {
+fun SignUpConfirmPasswordSection(
+    value: String,
+    onChange: (String) -> Unit,
+    submit: () -> Unit,
+) {
+    var isPasswordVisible by remember { mutableStateOf(false) }
+
+    TextField(
+        value = value,
+        onValueChange = onChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        colors = TextFieldDefaults.textFieldColors(
+            containerColor = Color.Transparent,
+            textColor = Color.White,
+        ),
+        leadingIcon = @Composable {
+            Icon(
+                Icons.Default.Check,
+                contentDescription = "",
+                tint = Color.White
+            )
+        },
+        keyboardOptions = KeyboardOptions(
+            imeAction = ImeAction.Done,
+            keyboardType = KeyboardType.Password
+        ),
+        keyboardActions = KeyboardActions(
+            onDone = { submit() }
+        ),
+        placeholder = { Text("Confirm your password", color = Color.White) },
+        label = { Text("Confirm your Password", color = Color.White) },
+        singleLine = true,
+        visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation()
+    )
+}
+
+@Composable
+fun AnnotatedClickableTextSignup() {
     val currentContext = LocalContext.current
 
     ClickableText(
         text = buildAnnotatedString {
-            val fullString = "Don't have an account? Create one"
-            val startIndex = fullString.indexOf("Create one")
-            val endIndex = startIndex + 10
+            val fullString = "Already have an account? Login"
+            val startIndex = fullString.indexOf("Login")
+            val endIndex = startIndex + 5
             withStyle(
                 style = SpanStyle(
                     color = MaterialTheme.colorScheme.primary,
@@ -267,15 +297,15 @@ fun AnnotatedClickableTextLogin() {
             }
             addStyle(
                 style = SpanStyle(
-                    textDecoration = TextDecoration.Underline,
                     color = Color.White,
+                    textDecoration = TextDecoration.Underline,
                     fontSize = 18.sp
                 ),
                 start = startIndex, end = endIndex
             )
         },
         onClick = {
-            val intent = Intent(currentContext, SignupScreen::class.java)
+            val intent = Intent(currentContext, LoginScreen::class.java)
             currentContext.startActivity(intent)
         }
     )
@@ -283,23 +313,44 @@ fun AnnotatedClickableTextLogin() {
 
 @Preview
 @Composable
-fun DisplayLoginScreen() {
-    var isLoggedIn by remember { mutableStateOf(false) }
+fun DisplaySignupScreen() {
+    var isSignedUp by remember { mutableStateOf(false) }
 
     val currentContext = LocalContext.current
 
-    if (isLoggedIn) {
-        val intent = Intent(currentContext, MainActivity::class.java)
+    var auth = Firebase.auth
+
+    if (isSignedUp) {
+        val intent = Intent(currentContext, LoginScreen::class.java)
         currentContext.startActivity(intent)
     } else {
-        Login { username, password ->
-            if (username == "me" && password == "1234") {
-                isLoggedIn = true
-            } else {
-                Toast.makeText(currentContext, "Wrong Credentials", Toast.LENGTH_SHORT).show()
+        SignUp { email, password, confirmPassword ->
+            when {
+                email.isEmpty() -> {
+                    Toast.makeText(currentContext, "Empty Email", Toast.LENGTH_SHORT).show()
+                }
+
+                password.isEmpty() -> {
+                    Toast.makeText(currentContext, "Empty Password", Toast.LENGTH_SHORT).show()
+                }
+
+                confirmPassword.isEmpty() -> {
+                    Toast.makeText(currentContext, "Empty Password", Toast.LENGTH_SHORT).show()
+                }
+
+                else -> {
+                    auth.createUserWithEmailAndPassword(email, password)
+                        .addOnCompleteListener() { task ->
+                            if (task.isSuccessful) {
+                                isSignedUp = true
+                            } else {
+                                Log.i("Check_Point", "signUp:failure", task.exception)
+                            }
+                        }
+
+                }
             }
+
         }
     }
 }
-
-
