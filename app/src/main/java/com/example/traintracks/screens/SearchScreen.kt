@@ -1,5 +1,6 @@
 package com.example.traintracks.screens
 
+import android.app.appsearch.SearchResult
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -10,8 +11,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,6 +26,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -56,7 +60,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.traintracks.R
 import com.example.traintracks.SearchApiService
-import com.example.traintracks.SearchResult
 import com.example.traintracks.ui.theme.TrainTracksTheme
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -352,8 +355,7 @@ fun DifficultyField(
     value: String,
     onChange: (String) -> Unit
 ) {
-    val context = LocalContext.current
-    val difficulty = arrayOf("Begginner", "Intermediate", "Expert")
+    val difficulty = arrayOf("Beginner", "Intermediate", "Expert")
     var expanded by remember { mutableStateOf(false) }
     var selectedText by remember { mutableStateOf(value) }
 
@@ -395,17 +397,97 @@ fun DifficultyField(
         }
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun Results(searchResults: List<com.example.traintracks.SearchResult>) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text(
+            text = "Results Screen",
+            fontSize = 30.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        if (searchResults.isNotEmpty()) {
+            // Display search results
+            searchResults.forEach { result ->
+                SearchResultItem(result = result)
+            }
+        } else {
+            // Display a message when there are no search results
+            Text(
+                text = "No results found",
+                fontSize = 20.sp,
+                color = Color.White,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+@Composable
+fun SearchResultItem(result: com.example.traintracks.SearchResult) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = result.name,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = result.type,
+                fontSize = 14.sp,
+                color = Color.White
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Difficulty: ${result.difficulty}",
+                fontSize = 12.sp,
+                color = Color.White
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = "Muscle Group: ${result.muscle}",
+                fontSize = 12.sp,
+                color = Color.White
+            )
+        }
+    }
+}
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
 fun SearchScreenContent() {
     var searchClicked by remember { mutableStateOf(false) }
     val currentContext = LocalContext.current
-    var searchResults by remember { mutableStateOf<List<SearchResult>>(emptyList()) }
+    var searchResults by remember { mutableStateOf<List<com.example.traintracks.SearchResult>>(emptyList()) }
 
     if (searchClicked) {
-        val intent = Intent(currentContext, SearchResultScreen::class.java)
-        currentContext.startActivity(intent)
+        Results(searchResults)
     } else {
             Search { workoutName, workoutType, muscleGroup, difficulty ->
             val retrofit = Retrofit.Builder()
@@ -445,10 +527,6 @@ fun SearchScreenContent() {
             println("Workout Name: $workoutName, Workout Type: $workoutType, Muscle Group: $muscleGroup, Difficulty: $difficulty")
             // Set searchClicked to true
             searchClicked = true
-
-            val intent = Intent(currentContext, SearchResultScreen::class.java)
-            intent.putExtra("searchResults", searchResults.toTypedArray())
-            currentContext.startActivity(intent)
         }
     }
 }
