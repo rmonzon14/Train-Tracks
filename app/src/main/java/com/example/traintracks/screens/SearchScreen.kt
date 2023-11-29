@@ -63,6 +63,11 @@ import com.example.traintracks.R
 import com.example.traintracks.SearchApiService
 import com.example.traintracks.ui.theme.TrainTracksTheme
 import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.auth
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.database.DatabaseReference
+import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.database
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -73,7 +78,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 class SearchScreen : ComponentActivity() {
 
-
+    private lateinit var auth : FirebaseAuth
+    private lateinit var db  : DatabaseReference
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -555,12 +561,19 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
 }
 
 private fun addToFirebaseDatabase(result: com.example.traintracks.SearchResult) {
-    // Reference to the root of your Firebase Realtime Database
-    val database = Firebase.database.reference
 
-    // Create a new child under "workouts" node and set the result data
-    val newWorkoutRef = database.child("workouts").push()
-    newWorkoutRef.setValue(result.toMap())
+    val auth = Firebase.auth
+    val currentUser = auth.currentUser
+
+    if (currentUser != null) {
+        val userId = currentUser.uid
+
+        val db = FirebaseDatabase.getInstance().getReference("users/$userId").push()
+
+        val workoutData = result.toMap()
+
+        db.setValue(workoutData)
+    }
 }
 
 // Add this extension function to convert the SearchResult to a map
