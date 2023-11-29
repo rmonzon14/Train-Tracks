@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarColors
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -131,10 +132,12 @@ fun Search(
                         currentContext.startActivity(intent)
                     }
                 ) {
-                    Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Back"
+                    )
                 }
-            },
-            modifier = Modifier.background(color = Color.Transparent)
+            }
         )
 
         Text(
@@ -401,7 +404,7 @@ fun SearchScreenContent() {
     var searchResults by remember { mutableStateOf<List<SearchResult>>(emptyList()) }
 
     if (searchClicked) {
-        val intent = Intent(currentContext, SearchScreen::class.java)
+        val intent = Intent(currentContext, SearchResultScreen::class.java)
         currentContext.startActivity(intent)
     } else {
             Search { workoutName, workoutType, muscleGroup, difficulty ->
@@ -442,6 +445,10 @@ fun SearchScreenContent() {
             println("Workout Name: $workoutName, Workout Type: $workoutType, Muscle Group: $muscleGroup, Difficulty: $difficulty")
             // Set searchClicked to true
             searchClicked = true
+
+            val intent = Intent(currentContext, SearchResultScreen::class.java)
+            intent.putExtra("searchResults", searchResults.toTypedArray())
+            currentContext.startActivity(intent)
         }
     }
 }
