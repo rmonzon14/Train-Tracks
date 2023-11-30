@@ -527,9 +527,7 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
             if (!isAddedToDatabase) {
                 Button(
                     onClick = {
-                        // Add the result to the Firebase database here
                         addToFirebaseDatabase(result)
-                        // Set isAddedToDatabase to true after adding to the database
                         isAddedToDatabase = true
                     },
                     modifier = Modifier
@@ -561,6 +559,7 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
 }
 
 private fun addToFirebaseDatabase(result: com.example.traintracks.SearchResult) {
+
     val auth = Firebase.auth
     val currentUser = auth.currentUser
 
@@ -575,7 +574,6 @@ private fun addToFirebaseDatabase(result: com.example.traintracks.SearchResult) 
     }
 }
 
-// Add this extension function to convert the SearchResult to a map
 fun com.example.traintracks.SearchResult.toMap(): Map<String, Any?> {
     return mapOf(
         "name" to name,
@@ -584,7 +582,6 @@ fun com.example.traintracks.SearchResult.toMap(): Map<String, Any?> {
         "muscle" to muscle,
         "equipment" to equipment,
         "instructions" to instructions
-        // Add more fields if necessary
     )
 }
 
@@ -621,7 +618,6 @@ fun SearchScreenContent() {
 
                 } catch (e: HttpException) {
                     val errorBody = e.response()?.errorBody()?.string()
-                    //println("HTTP error: ${e.code()}, ${e.message()}, $errorBody")
                     Log.i("CHECK_POINT", "onResponse: ${e.code()}")
                     Log.i("CHECK_POINT", "onResponse: ${e.message()}")
                     Log.i("CHECK_POINT", "onResponse: $errorBody")
@@ -635,7 +631,6 @@ fun SearchScreenContent() {
             }
 
             println("Workout Name: $workoutName, Workout Type: $workoutType, Muscle Group: $muscleGroup, Difficulty: $difficulty")
-            // Set searchClicked to true
             searchClicked = true
         }
     }

@@ -44,10 +44,8 @@ fun WorkoutScreen(navController: NavController) {
         db = FirebaseDatabase.getInstance().getReference("users/$userId")
     }
 
-    // State to hold the list of workouts
     var workoutList by remember { mutableStateOf<List<Workout>>(emptyList()) }
 
-    // Read data from Firebase Realtime Database
     db.addValueEventListener(object : ValueEventListener {
         override fun onDataChange(snapshot: DataSnapshot) {
             // Convert the DataSnapshot to a list of Workout objects
@@ -56,7 +54,6 @@ fun WorkoutScreen(navController: NavController) {
 
         override fun onCancelled(error: DatabaseError) {
             // Handle error
-            // You may want to show an error message or log the error
         }
     })
 
@@ -78,15 +75,12 @@ fun WorkoutScreen(navController: NavController) {
             Text(
                 text = "Workout Name: ${workout.name}, Type: ${workout.type}, Difficulty: ${workout.difficulty}",
             )
-            // Add more Text elements or compose components based on your workout data structure
         }
     }
 }
 
-// Define your Workout data class
 data class Workout(
     val name: String = "",
     val type: String = "",
     val difficulty: String = "",
-    // Add more fields if necessary
 )
