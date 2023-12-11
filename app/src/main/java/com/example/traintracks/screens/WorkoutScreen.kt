@@ -1,5 +1,6 @@
 package com.example.traintracks.screens
 
+import android.content.Intent
 import com.example.traintracks.R
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -48,10 +49,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.ButtonColors
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 
 private lateinit var auth : FirebaseAuth
@@ -60,6 +66,9 @@ private lateinit var db  : DatabaseReference
 fun WorkoutScreen(navController: NavController) {
     val auth = Firebase.auth
     val currentUser = auth.currentUser
+
+    val currentContext = LocalContext.current
+
     if (currentUser != null) {
         val userId = currentUser.uid
         db = FirebaseDatabase.getInstance().getReference("users/$userId")
@@ -126,7 +135,21 @@ fun WorkoutScreen(navController: NavController) {
         ) {
             Text("No workouts found for your profile")
             Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = { navController.navigate("YourSearchScreenRoute") }) {
+            Button(
+                onClick = {
+                    val intent = Intent(currentContext, SearchScreen::class.java)
+                    currentContext.startActivity(intent)
+                },
+                shape = RoundedCornerShape(5.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.LightGray,
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
+            )
+            {
                 Text("Find Workouts")
             }
         }
