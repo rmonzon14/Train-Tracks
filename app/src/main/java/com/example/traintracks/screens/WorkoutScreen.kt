@@ -30,6 +30,20 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.runtime.*
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 private lateinit var auth : FirebaseAuth
 private lateinit var db  : DatabaseReference
@@ -37,18 +51,17 @@ private lateinit var db  : DatabaseReference
 fun WorkoutScreen(navController: NavController) {
     val auth = Firebase.auth
     val currentUser = auth.currentUser
-
     if (currentUser != null) {
         val userId = currentUser.uid
-
         db = FirebaseDatabase.getInstance().getReference("users/$userId")
     }
 
     var workoutList by remember { mutableStateOf<List<Workout>>(emptyList()) }
+    var showDialog by remember { mutableStateOf(false) }
+    var workoutToDeleteIndex by remember { mutableStateOf(-1) }
 
     db.addValueEventListener(object : ValueEventListener {
         override fun onDataChange(snapshot: DataSnapshot) {
-            // Convert the DataSnapshot to a list of Workout objects
             workoutList = snapshot.children.mapNotNull { it.getValue(Workout::class.java) }
         }
 
@@ -57,24 +70,145 @@ fun WorkoutScreen(navController: NavController) {
         }
     })
 
-    // Display the list of workouts
-    Column(
-        Modifier
-            .padding(24.dp)
-            .fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp, alignment = Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "Workout Screen",
+    // Function to delete a workout
+    fun deleteWorkout(workoutIndex: Int) {
+        val workoutToDelete = workoutList[workoutIndex]
+        db.orderByChild("name").equalTo(workoutToDelete.name).addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                for (child in snapshot.children) {
+                    child.ref.removeValue()
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                // Handle possible errors
+            }
+        })
+    }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text("Delete Workout") },
+            text = { Text("Are you sure you want to delete this workout?") },
+            confirmButton = {
+                Button(onClick = {
+                    deleteWorkout(workoutToDeleteIndex)
+                    showDialog = false
+                }) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { showDialog = false }) {
+                    Text("Cancel")
+                }
+            }
         )
+    }
 
-        // Display each workout in the list
-        workoutList.forEach { workout ->
+    if (workoutList.isEmpty()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text("No workouts found for your profile")
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = { navController.navigate("YourSearchScreenRoute") }) {
+                Text("Find Workouts")
+            }
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier
+                .padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 85.dp)
+                .fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            item {
+                Text(
+                    text = "Saved Workouts",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+            }
 
-            Text(
-                text = "Workout Name: ${workout.name}, Type: ${workout.type}, Difficulty: ${workout.difficulty}",
-            )
+            itemsIndexed(workoutList) { index, workout ->
+                var expanded by remember { mutableStateOf(false) }
+
+                Card(
+                    modifier = Modifier
+                        .clickable { expanded = !expanded }
+                        .padding(8.dp)
+                        .widthIn(min = 350.dp, max = 350.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = "${workout.name}",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(
+                            text = "Type: ${workout.type}",
+                            fontSize = 16.sp,
+                            color = Color.Blue
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = "Difficulty: ${workout.difficulty}",
+                            fontSize = 16.sp,
+                            color = Color.Red
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        if (expanded) {
+                            Text(
+                                text = "Muscle Group: ${workout.muscle}",
+                                fontSize = 16.sp
+                            )
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            Text(
+                                text = "Equipment: ${workout.equipment}",
+                                fontSize = 16.sp
+                            )
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            Text(
+                                text = "Instructions: ${workout.instructions}",
+                                fontSize = 16.sp
+                            )
+                        }
+
+                        Text(
+                            text = "Delete Saved Workout",
+                            modifier = Modifier
+                                .padding(top = 8.dp)
+                                .clickable {
+                                    workoutToDeleteIndex = index
+                                    showDialog = true
+                                },
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -82,5 +216,8 @@ fun WorkoutScreen(navController: NavController) {
 data class Workout(
     val name: String = "",
     val type: String = "",
+    val muscle: String = "",
+    val equipment: String = "",
     val difficulty: String = "",
+    val instructions: String = ""
 )

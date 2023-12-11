@@ -6,8 +6,10 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.VectorConverter
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -66,8 +68,11 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 import com.google.firebase.database.database
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -443,6 +448,13 @@ fun Results(searchResults: List<com.example.traintracks.SearchResult>) {
             color = Color.Black,
             modifier = Modifier.padding(bottom = 16.dp)
         )
+        Text(
+            text = "Click on workout items for more details.",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.Black,
+            modifier = Modifier.padding(top=16.dp, bottom = 16.dp)
+        )
 
         if (searchResults.isNotEmpty()) {
             // Display search results
@@ -462,13 +474,36 @@ fun Results(searchResults: List<com.example.traintracks.SearchResult>) {
 }
 @Composable
 fun SearchResultItem(result: com.example.traintracks.SearchResult) {
+    val auth = Firebase.auth
+    val currentUser = auth.currentUser
     var isAddedToDatabase by remember { mutableStateOf(false) }
+
+    LaunchedEffect(result) {
+        val userId = currentUser?.uid
+        if (userId != null) {
+            val db = FirebaseDatabase.getInstance().getReference("users/$userId")
+            db.addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (snapshot.children.any { it.child("name").value == result.name }) {
+                        isAddedToDatabase = true
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    // Handle error
+                }
+            })
+        }
+    }
+
+    var expanded by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp)
-            .background(color = Color.DarkGray),
+            .background(color = Color.DarkGray)
+            .clickable { expanded = !expanded },
         shape = RoundedCornerShape(8.dp)
     ) {
         Column(
@@ -478,50 +513,54 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
         ) {
             Text(
                 text = result.name,
-                fontSize = 18.sp,
+                fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = Color.Black
             )
 
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
                 text = result.type,
-                fontSize = 14.sp,
-                color = Color.White
+                fontSize = 18.sp,
+                color = Color.Blue
             )
 
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
                 text = "Difficulty: ${result.difficulty}",
-                fontSize = 12.sp,
-                color = Color.White
+                fontSize = 18.sp,
+                color = Color.Red
             )
 
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
                 text = "Muscle Group: ${result.muscle}",
-                fontSize = 12.sp,
-                color = Color.White
+                fontSize = 18.sp,
+                color = Color.Black
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            // Expandable section for Equipment and Instructions
+            if (expanded) {
+                Spacer(modifier = Modifier.height(4.dp))
 
-            Text(
-                text = "Equipment: ${result.equipment}",
-                fontSize = 12.sp,
-                color = Color.White
-            )
+                Text(
+                    text = "Equipment: ${result.equipment}",
+                    fontSize = 18.sp,
+                    color = Color.Black
+                )
 
-            Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
-            Text(
-                text = "Instructions: ${result.instructions}",
-                fontSize = 12.sp,
-                color = Color.White
-            )
+                Text(
+                    text = "Instructions: ${result.instructions}",
+                    fontSize = 18.sp,
+                    color = Color.Black
+                )
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
 
             if (!isAddedToDatabase) {
@@ -546,9 +585,9 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
                 }
             } else {
                 Text(
-                    text = "Added to Workouts",
+                    text = "Workout Already Saved",
                     fontSize = 16.sp,
-                    color = Color.Black,
+                    color = Color.Red,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(8.dp)
