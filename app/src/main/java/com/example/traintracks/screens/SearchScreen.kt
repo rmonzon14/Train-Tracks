@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -511,6 +512,21 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
+            val iconResId = when (result.type) {
+                "cardio" -> R.drawable.icon_cardio
+                "olympic_weightlifting" -> R.drawable.icon_olympic_weighlifting
+                "plyometrics" -> R.drawable.icon_plyometrics
+                "powerlifting" -> R.drawable.icon_powerlifting
+                "strength" -> R.drawable.icon_strength
+                "stretching" -> R.drawable.icon_stretching
+                "strongman" -> R.drawable.icon_strongman
+                else -> R.drawable.icon_strongman
+            }
+            Image(
+                painter = painterResource(id = iconResId),
+                contentDescription = "Workout Icon",
+                modifier = Modifier.size(30.dp)
+            )
             Text(
                 text = result.name,
                 fontSize = 24.sp,

@@ -1,8 +1,10 @@
 package com.example.traintracks.screens
 
+import com.example.traintracks.R
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,9 +43,16 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
 
 private lateinit var auth : FirebaseAuth
 private lateinit var db  : DatabaseReference
@@ -150,6 +159,22 @@ fun WorkoutScreen(navController: NavController) {
                     Column(
                         modifier = Modifier.padding(16.dp)
                     ) {
+                        val iconResId = when (workout.type) {
+                            "cardio" -> R.drawable.icon_cardio
+                            "olympic_weightlifting" -> R.drawable.icon_olympic_weighlifting
+                            "plyometrics" -> R.drawable.icon_plyometrics
+                            "powerlifting" -> R.drawable.icon_powerlifting
+                            "strength" -> R.drawable.icon_strength
+                            "stretching" -> R.drawable.icon_stretching
+                            "strongman" -> R.drawable.icon_strongman
+                            else -> R.drawable.icon_strongman
+                        }
+                        Image(
+                            painter = painterResource(id = iconResId),
+                            contentDescription = "Workout Icon",
+                            modifier = Modifier.size(30.dp)
+                        )
+
                         Text(
                             text = "${workout.name}",
                             fontSize = 20.sp,
@@ -212,6 +237,8 @@ fun WorkoutScreen(navController: NavController) {
         }
     }
 }
+
+
 
 data class Workout(
     val name: String = "",
