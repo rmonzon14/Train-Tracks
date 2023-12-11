@@ -37,18 +37,17 @@ import com.example.traintracks.ui.theme.TrainTracksTheme
 fun HomeScreen(navController: NavController) {
     val currentContext = LocalContext.current
 
-    // Background Image
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(color = Color.White)
+            .padding(bottom = 80.dp)
     ) {
+        // Background Image
         Image(
-            modifier = Modifier
-                .fillMaxSize(),
             painter = painterResource(id = R.drawable.login),
             contentDescription = null,
             contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
         )
 
         // Content Column
@@ -62,7 +61,7 @@ fun HomeScreen(navController: NavController) {
             // Title
             Text(
                 text = "Home Screen",
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineSmall,
                 color = Color.White,
                 modifier = Modifier
                     .padding(bottom = 16.dp)
@@ -72,7 +71,7 @@ fun HomeScreen(navController: NavController) {
             // Intro Text
             Text(
                 text = "Welcome to TrainTracks! Discover and track your workouts.",
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.headlineMedium,
                 color = Color.White,
                 modifier = Modifier.fillMaxWidth()
             )
