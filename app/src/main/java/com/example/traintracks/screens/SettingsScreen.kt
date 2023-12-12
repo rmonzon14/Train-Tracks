@@ -57,7 +57,9 @@ fun SettingsScreen(navController: NavController) {
     LaunchedEffect(Unit) {
         db.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                workoutLogs = snapshot.children.mapNotNull { it.getValue(WorkoutLog::class.java) }.asReversed()
+                workoutLogs = snapshot.children.mapNotNull { it.getValue(WorkoutLog::class.java) }
+                    .asReversed()
+                    .sortedByDescending { it.date }
                 isLoading = false
             }
 
@@ -73,7 +75,9 @@ fun SettingsScreen(navController: NavController) {
         // Refresh the workout logs list
         db.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                workoutLogs = snapshot.children.mapNotNull { it.getValue(WorkoutLog::class.java) }.asReversed()
+                workoutLogs = snapshot.children.mapNotNull { it.getValue(WorkoutLog::class.java) }
+                    .asReversed()
+                    .sortedByDescending { it.date }
                 isLoading = false
             }
 
