@@ -74,7 +74,7 @@ fun WorkoutScreen(navController: NavController) {
 
     db.addValueEventListener(object : ValueEventListener {
         override fun onDataChange(snapshot: DataSnapshot) {
-            workoutList = snapshot.children.mapNotNull { it.getValue(Workout::class.java) }
+            workoutList = snapshot.children.mapNotNull { it.getValue(Workout::class.java) }.asReversed()
             isLoading = false
         }
 
