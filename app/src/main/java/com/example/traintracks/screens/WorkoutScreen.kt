@@ -56,6 +56,7 @@ fun WorkoutScreen(navController: NavController) {
         db = FirebaseDatabase.getInstance().getReference("users/$userId/workouts")
     }
 
+    var isLoading by remember { mutableStateOf(true) }
     var workoutList by remember { mutableStateOf<List<Workout>>(emptyList()) }
     var showDialog by remember { mutableStateOf(false) }
     var workoutToDeleteIndex by remember { mutableStateOf(-1) }
@@ -75,11 +76,13 @@ fun WorkoutScreen(navController: NavController) {
     db.addValueEventListener(object : ValueEventListener {
         override fun onDataChange(snapshot: DataSnapshot) {
             workoutList = snapshot.children.mapNotNull { it.getValue(Workout::class.java) }
+            isLoading = false
         }
 
         override fun onCancelled(error: DatabaseError) {
             errorMessage = "Failed to load workouts: ${error.message}"
             showErrorSnackbar = true
+            isLoading = false
         }
     })
 
@@ -361,103 +364,109 @@ fun WorkoutScreen(navController: NavController) {
         }
     }
 
-    // Main content of the WorkoutScreen
-    if (workoutList.isEmpty()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text("No workouts found for your profile")
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = {
-                    val intent = Intent(currentContext, SearchScreen::class.java)
-                    currentContext.startActivity(intent)
-                },
-                shape = RoundedCornerShape(5.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.LightGray,
-                    contentColor = MaterialTheme.colorScheme.primary
-                )
-            ) {
-                Text("Find Workouts")
-            }
-        }
-    } else {
-        LazyColumn(
-            modifier = Modifier
-                .padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 85.dp)
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            item {
-                Text(
-                    text = "Saved Workouts",
-                    modifier = Modifier.padding(bottom = 16.dp),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            itemsIndexed(workoutList) { index, workout ->
-                Card(
+    Box(modifier = Modifier.fillMaxSize()){
+        if(isLoading){
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+        } else {
+            // Main content of the WorkoutScreen
+            if (workoutList.isEmpty()) {
+                Column(
                     modifier = Modifier
-                        .clickable {
-                            selectedWorkout = workout
-                            showFullScreenDialog = true
-                        }
-                        .padding(8.dp)
-                        .widthIn(min = 350.dp, max = 350.dp)
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
+                    Text("No workouts found for your profile")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            val intent = Intent(currentContext, SearchScreen::class.java)
+                            currentContext.startActivity(intent)
+                        },
+                        shape = RoundedCornerShape(5.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.LightGray,
+                            contentColor = MaterialTheme.colorScheme.primary
+                        )
                     ) {
-                        val iconResId = when (workout.type) {
-                            "cardio" -> R.drawable.icon_cardio
-                            "olympic_weightlifting" -> R.drawable.icon_olympic_weighlifting
-                            "plyometrics" -> R.drawable.icon_plyometrics
-                            "powerlifting" -> R.drawable.icon_powerlifting
-                            "strength" -> R.drawable.icon_strength
-                            "stretching" -> R.drawable.icon_stretching
-                            "strongman" -> R.drawable.icon_strongman
-                            else -> R.drawable.icon_strongman
-                        }
-                        Image(
-                            painter = painterResource(id = iconResId),
-                            contentDescription = "Workout Icon",
-                            modifier = Modifier.size(30.dp)
-                        )
-
+                        Text("Find Workouts")
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 85.dp)
+                        .fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    item {
                         Text(
-                            text = workout.name,
-                            fontSize = 20.sp,
+                            text = "Saved Workouts",
+                            modifier = Modifier.padding(bottom = 16.dp),
+                            style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color.Black
+                            color = MaterialTheme.colorScheme.primary
                         )
+                    }
 
-                        Spacer(modifier = Modifier.height(6.dp))
+                    itemsIndexed(workoutList) { index, workout ->
+                        Card(
+                            modifier = Modifier
+                                .clickable {
+                                    selectedWorkout = workout
+                                    showFullScreenDialog = true
+                                }
+                                .padding(8.dp)
+                                .widthIn(min = 350.dp, max = 350.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+                                val iconResId = when (workout.type) {
+                                    "cardio" -> R.drawable.icon_cardio
+                                    "olympic_weightlifting" -> R.drawable.icon_olympic_weighlifting
+                                    "plyometrics" -> R.drawable.icon_plyometrics
+                                    "powerlifting" -> R.drawable.icon_powerlifting
+                                    "strength" -> R.drawable.icon_strength
+                                    "stretching" -> R.drawable.icon_stretching
+                                    "strongman" -> R.drawable.icon_strongman
+                                    else -> R.drawable.icon_strongman
+                                }
+                                Image(
+                                    painter = painterResource(id = iconResId),
+                                    contentDescription = "Workout Icon",
+                                    modifier = Modifier.size(30.dp)
+                                )
 
-                        Text(
-                            text = "Type: ${workout.type}",
-                            fontSize = 16.sp,
-                            color = Color.Blue
-                        )
+                                Text(
+                                    text = workout.name,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black
+                                )
 
-                        Spacer(modifier = Modifier.height(4.dp))
+                                Spacer(modifier = Modifier.height(6.dp))
 
-                        Text(
-                            text = "Difficulty: ${workout.difficulty}",
-                            fontSize = 16.sp,
-                            color = Color.Red
-                        )
+                                Text(
+                                    text = "Type: ${workout.type}",
+                                    fontSize = 16.sp,
+                                    color = Color.Blue
+                                )
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                Text(
+                                    text = "Difficulty: ${workout.difficulty}",
+                                    fontSize = 16.sp,
+                                    color = Color.Red
+                                )
+                            }
+                        }
                     }
                 }
             }
