@@ -1,4 +1,4 @@
-package com.example.traintracks.screens
+package com.example.traintracks
 
 import android.content.Intent
 import android.os.Build
@@ -38,6 +38,10 @@ import com.example.traintracks.WorkoutLog
 import com.google.firebase.auth.auth
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
+import com.example.traintracks.screens.SearchScreen
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 private lateinit var auth: FirebaseAuth
 private lateinit var db: DatabaseReference
@@ -86,18 +90,38 @@ fun WorkoutScreen(navController: NavController) {
     })
 
     fun isFormValid(workout: Workout): Boolean {
-        when {
-            workoutDate.isBlank() || !workoutDate.matches("\\d{4}-\\d{2}-\\d{2}".toRegex()) -> errorMessage = "Enter a valid date in format YYYY-MM-DD"
-            workout.type in listOf("cardio", "stretching") && workoutDuration.isBlank() -> errorMessage = "Duration is required for this workout type"
-            workout.type in listOf("olympic_weightlifting", "plyometrics", "powerlifting", "strength", "strongman") && workoutSets.isBlank() -> errorMessage = "Sets are required for this workout type"
-            workout.type in listOf("olympic_weightlifting", "plyometrics", "powerlifting", "strength", "strongman") && workoutSets.toIntOrNull() == null -> errorMessage = "Sets must be an integer"
-            workout.type in listOf("olympic_weightlifting", "plyometrics", "powerlifting", "strength", "strongman") && workoutReps.isBlank() -> errorMessage = "Reps are required for this workout type"
-            workout.type in listOf("olympic_weightlifting", "plyometrics", "powerlifting", "strength", "strongman") && workoutReps.toIntOrNull() == null -> errorMessage = "Reps must be an integer"
-            else -> return true
+        if (workoutDate.isBlank() || !workoutDate.matches("\\d{4}-\\d{2}-\\d{2}".toRegex())) {
+            errorMessage = "Enter a valid date in format YYYY-MM-DD"
+        } else if (workout.type in listOf("cardio", "stretching") && workoutDuration.isBlank()) {
+            errorMessage = "Duration is required for this workout type"
+        } else if (workout.type in listOf("olympic_weightlifting", "plyometrics", "powerlifting", "strength", "strongman") && workoutSets.isBlank()) {
+            errorMessage = "Sets are required for this workout type"
+        } else if (workout.type in listOf("olympic_weightlifting", "plyometrics", "powerlifting", "strength", "strongman") && workoutSets.toIntOrNull() == null) {
+            errorMessage = "Sets must be an integer"
+        } else if (workout.type in listOf("olympic_weightlifting", "plyometrics", "powerlifting", "strength", "strongman") && workoutReps.isBlank()) {
+            errorMessage = "Reps are required for this workout type"
+        } else if (workout.type in listOf("olympic_weightlifting", "plyometrics", "powerlifting", "strength", "strongman") && workoutReps.toIntOrNull() == null) {
+            errorMessage = "Reps must be an integer"
+        } else {
+            // Additional check for future date
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            dateFormat.isLenient = false
+            try {
+                val parsedDate = dateFormat.parse(workoutDate)
+                val today = Calendar.getInstance().time
+                if (parsedDate.after(today)) {
+                    errorMessage = "You cannot log workouts in the future unless you are Marty McFly"
+                } else {
+                    return true
+                }
+            } catch (e: Exception) {
+                errorMessage = "Enter a valid date in format YYYY-MM-DD"
+            }
         }
         showErrorSnackbar = true
         return false
     }
+
 
     fun saveWorkoutLog(workout: Workout) {
         val userId = Firebase.auth.currentUser?.uid ?: return
@@ -182,7 +206,7 @@ fun WorkoutScreen(navController: NavController) {
 
                 Column(
                     modifier = Modifier
-                        .padding(20.dp)
+                        .padding(start = 20.dp, end = 20.dp, bottom = 20.dp)
                         .verticalScroll(scrollState),
                 ) {
                     if (showConfirmationMessage) {
@@ -217,7 +241,7 @@ fun WorkoutScreen(navController: NavController) {
                             showFullScreenDialog = false
                             showConfirmationMessage = false
                             showErrorSnackbar = false
-                                  },
+                        },
                         modifier = Modifier.align(Alignment.End)
                     ) {
                         Icon(Icons.Default.Close, contentDescription = "Close")
@@ -490,4 +514,3 @@ fun WorkoutScreen(navController: NavController) {
         }
     }
 }
-
