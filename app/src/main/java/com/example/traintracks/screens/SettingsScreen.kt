@@ -2,6 +2,7 @@ package com.example.traintracks.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -47,6 +48,7 @@ import com.google.firebase.database.ValueEventListener
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TextField
+import androidx.compose.runtime.MutableState
 
 @Composable
 fun SettingsScreen(navController: NavController) {
@@ -56,7 +58,8 @@ fun SettingsScreen(navController: NavController) {
 
     var workoutLogs by remember { mutableStateOf<List<WorkoutLog>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var errorMessage = remember { mutableStateOf<String?>(null) }
+    var successMessage = remember { mutableStateOf<String?>(null) }
 
     fun refreshWorkoutLogs() {
         isLoading = true
@@ -70,7 +73,7 @@ fun SettingsScreen(navController: NavController) {
 
             override fun onCancelled(error: DatabaseError) {
                 isLoading = false
-                errorMessage = error.message
+                errorMessage.value = error.message
             }
         })
     }
@@ -87,7 +90,7 @@ fun SettingsScreen(navController: NavController) {
             override fun onCancelled(error: DatabaseError) {
                 isLoading = false
                 // Handle the error
-                errorMessage = error.message
+                errorMessage.value = error.message
             }
         })
     }
@@ -104,60 +107,80 @@ fun SettingsScreen(navController: NavController) {
 
             override fun onCancelled(error: DatabaseError) {
                 isLoading = false
-                errorMessage = "Failed to refresh data: ${error.message}"
+                errorMessage.value = "Failed to refresh data: ${error.message}"
             }
         })
     }
 
     val onDeleteFailure = { error: String ->
-        // Handle the error case
-        errorMessage = error
+        errorMessage.value = error
     }
 
-    // Error message Snackbar
-    if (errorMessage != null) {
-        Snackbar(
-            action = {
-                TextButton(onClick = { errorMessage = null }) {
-                    Text("OK")
-                }
-            },
-            modifier = Modifier.padding(8.dp)
+    Box{
+        Surface(
+            modifier = Modifier
+                .padding(24.dp, bottom = 80.dp)
+                .fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
         ) {
-            Text(errorMessage!!)
-        }
-    }
-
-    Surface(
-        modifier = Modifier
-            .padding(24.dp, bottom = 80.dp)
-            .fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Column {
-            if (isLoading) {
-                CircularProgressIndicator()
-            } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    item{
-                        Text(
-                            text = "Logged Workouts",
-                            modifier = Modifier.padding(bottom = 16.dp, top = 16.dp),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    items(workoutLogs) { log ->
-                        WorkoutLogCard(
-                            log = log,
-                            onDeleteSuccess = { refreshWorkoutLogs() },
-                            onDeleteFailure = { errorMessage = it },
-                            onEditSuccess = { refreshWorkoutLogs() }
-                        )
+            Column {
+                if (isLoading) {
+                    CircularProgressIndicator()
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        item{
+                            successMessage.value?.let { msg ->
+                                Snackbar(
+                                    action = {
+                                        TextButton(onClick = { successMessage.value = null }) {
+                                            Text("OK")
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .padding(8.dp)
+                                ) {
+                                    Text(msg)
+                                }
+                            }
+                        }
+                        item{
+                            // Error message Snackbar
+                            if (errorMessage.value != null) {
+                                Snackbar(
+                                    action = {
+                                        TextButton(onClick = { errorMessage.value = null }) {
+                                            Text("OK")
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .padding(8.dp)
+                                ) {
+                                    Text(errorMessage.value!!)
+                                }
+                            }
+                        }
+                        item{
+                            Text(
+                                text = "Logged Workouts",
+                                modifier = Modifier.padding(bottom = 16.dp, top = 16.dp),
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        items(workoutLogs) { log ->
+                            WorkoutLogCard(
+                                log = log,
+                                onDeleteSuccess = { refreshWorkoutLogs() },
+                                onDeleteFailure = { errorMessage.value = it },
+                                onEditSuccess = { refreshWorkoutLogs() },
+                                errorMessageState = errorMessage,
+                                successMessageState = successMessage
+                            )
+                        }
                     }
                 }
             }
@@ -168,11 +191,10 @@ fun SettingsScreen(navController: NavController) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WorkoutLogCard(log: WorkoutLog, onDeleteSuccess: () -> Unit, onDeleteFailure: (String) -> Unit, onEditSuccess: () -> Unit) {
+fun WorkoutLogCard(log: WorkoutLog, successMessageState: MutableState<String?>, onDeleteSuccess: () -> Unit, onDeleteFailure: (String) -> Unit, onEditSuccess: () -> Unit, errorMessageState: MutableState<String?>) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    var successMessage by remember { mutableStateOf<String?>(null) }
+
 
     fun deleteWorkoutLog(logId: String, onSuccess: () -> Unit, onFailure: (String) -> Unit) {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
@@ -192,10 +214,20 @@ fun WorkoutLogCard(log: WorkoutLog, onDeleteSuccess: () -> Unit, onDeleteFailure
         db.child(updatedLog.id).setValue(updatedLog)
             .addOnSuccessListener {
                 onSuccess()
+                successMessageState.value = "Workout log updated successfully."
+                errorMessageState.value = null
             }
             .addOnFailureListener {
                 onFailure(it.message ?: "An unknown error occurred")
             }
+    }
+
+    fun isValidDate(dateStr: String): Boolean {
+        return dateStr.matches("\\d{4}-\\d{2}-\\d{2}".toRegex())
+    }
+
+    fun isValidInput(vararg inputs: Pair<Boolean, String>): Boolean {
+        return inputs.filter { it.first }.all { it.second.isNotBlank() }
     }
 
     if (showDeleteDialog) {
@@ -224,23 +256,23 @@ fun WorkoutLogCard(log: WorkoutLog, onDeleteSuccess: () -> Unit, onDeleteFailure
         var editedName by remember { mutableStateOf(log.name) }
         var editedSets by remember(log.sets.isNotBlank()) { mutableStateOf(log.sets) }
         var editedReps by remember(log.reps.isNotBlank()) { mutableStateOf(log.reps) }
+        var editedDate by remember { mutableStateOf(log.date) }
         var editedDuration by remember(log.duration.isNotBlank()) { mutableStateOf(log.duration) }
         var editedDistance by remember(log.distance) { mutableStateOf(log.distance ?: "") }
-
+        var initialDistanceIsNotBlank = log.distance?.isNotBlank() == true
 
         // Implement the dialog for editing
         AlertDialog(
             onDismissRequest = { showEditDialog = false },
-            title = { Text("Edit Workout Log") },
+            title = { Text("Editing: ${log.name}") },
             text = {
                 Column {
-                    // Name field
+                    // Display date of logged workout
                     TextField(
-                        value = editedName,
-                        onValueChange = { editedName = it },
-                        label = { Text("Name") }
+                        value = editedDate,
+                        onValueChange = { editedDate = it },
+                        label = { Text("Date") }
                     )
-
                     // Conditionally show Sets field
                     if (log.sets.isNotBlank()) {
                         TextField(
@@ -280,27 +312,36 @@ fun WorkoutLogCard(log: WorkoutLog, onDeleteSuccess: () -> Unit, onDeleteFailure
             },
             confirmButton = {
                 Button(onClick = {
-                    log.name = editedName
-                    log.sets = editedSets
-                    log.reps = editedReps
-                    log.duration = editedDuration
-                    log.distance = editedDistance
+                    if (!isValidDate(editedDate)) {
+                        errorMessageState.value = "Invalid date format. Please use YYYY-MM-DD."
+                    } else if (!isValidInput(
+                            true to editedName, // Name is always required
+                            log.sets.isNotBlank() to editedSets,
+                            log.reps.isNotBlank() to editedReps,
+                            log.duration.isNotBlank() to editedDuration,
+                            initialDistanceIsNotBlank to editedDistance
+                        )) {
+                        errorMessageState.value = "Please fill in all visible fields."
+                    } else {
+                        log.date = editedDate
+                        log.name = editedName
+                        log.sets = editedSets
+                        log.reps = editedReps
+                        log.duration = editedDuration
+                        log.distance = editedDistance
 
-                    // Call the update function
-                    updateWorkoutLog(log,
-                        onSuccess = {
-                            // Handle success
+                        // Call the update function
+                        updateWorkoutLog(log, onSuccess = {
                             showEditDialog = false
                             onEditSuccess()
-                        },
-                        onFailure = { error ->
-                            // Handle failure.
-                            errorMessage = error
-                        }
-                    )
+                        }, onFailure = { error ->
+                            errorMessageState.value = error
+                        })
+                    }
                 }) {
                     Text("Save")
                 }
+
             },
             dismissButton = {
                 Button(onClick = { showEditDialog = false }) {
@@ -393,31 +434,7 @@ fun WorkoutLogCard(log: WorkoutLog, onDeleteSuccess: () -> Unit, onDeleteFailure
                     )
                 }
             }
-            errorMessage?.let { msg ->
-                Snackbar(
-                    action = {
-                        TextButton(onClick = { errorMessage = null }) {
-                            Text("OK")
-                        }
-                    },
-                    modifier = Modifier.padding(8.dp)
-                ) {
-                    Text(msg)
-                }
-            }
 
-            successMessage?.let { msg ->
-                Snackbar(
-                    action = {
-                        TextButton(onClick = { successMessage = null }) {
-                            Text("OK")
-                        }
-                    },
-                    modifier = Modifier.padding(8.dp)
-                ) {
-                    Text(msg)
-                }
-            }
         }
     }
 }

@@ -7,7 +7,7 @@ data class WorkoutLog(
     var distance: String? = null,
     var sets: String = "",
     var reps: String = "",
-    val date: String = ""
+    var date: String = ""
 ) {
     // Add a parameterless constructor
     constructor() : this("","", "", null, "", "", "")
