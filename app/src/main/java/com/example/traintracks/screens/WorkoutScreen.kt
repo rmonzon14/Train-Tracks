@@ -1,82 +1,74 @@
 package com.example.traintracks.screens
 
 import android.content.Intent
+import android.os.Build
 import com.example.traintracks.R
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavController
-import com.example.traintracks.ui.theme.TrainTracksTheme
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.auth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.runtime.*
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.ButtonColors
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
+import java.time.LocalDate
+import com.example.traintracks.R.drawable.*
+import com.example.traintracks.Workout
+import com.example.traintracks.WorkoutLog
+import com.google.firebase.auth.auth
 
-private lateinit var auth : FirebaseAuth
-private lateinit var db  : DatabaseReference
+private lateinit var auth: FirebaseAuth
+private lateinit var db: DatabaseReference
+
+@OptIn(ExperimentalMaterial3Api::class)
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun WorkoutScreen(navController: NavController) {
     val auth = Firebase.auth
     val currentUser = auth.currentUser
-
     val currentContext = LocalContext.current
 
     if (currentUser != null) {
         val userId = currentUser.uid
-        db = FirebaseDatabase.getInstance().getReference("users/$userId")
+        db = FirebaseDatabase.getInstance().getReference("users/$userId/workouts")
     }
 
     var workoutList by remember { mutableStateOf<List<Workout>>(emptyList()) }
     var showDialog by remember { mutableStateOf(false) }
     var workoutToDeleteIndex by remember { mutableStateOf(-1) }
+    var showFullScreenDialog by remember { mutableStateOf(false) }
+    var selectedWorkout by remember { mutableStateOf<Workout?>(null) }
+    var showLogWorkoutDialog by remember { mutableStateOf(false) }
+    var workoutName by remember { mutableStateOf("") }
+    var workoutDuration by remember { mutableStateOf("") }
+    var workoutDistance by remember { mutableStateOf("") }
+    var workoutSets by remember { mutableStateOf("") }
+    var workoutReps by remember { mutableStateOf("") }
+    var workoutDate by remember { mutableStateOf(LocalDate.now().toString()) }
+    var showConfirmationMessage by remember { mutableStateOf(false) }
+    var showErrorSnackbar by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
 
     db.addValueEventListener(object : ValueEventListener {
         override fun onDataChange(snapshot: DataSnapshot) {
@@ -84,11 +76,38 @@ fun WorkoutScreen(navController: NavController) {
         }
 
         override fun onCancelled(error: DatabaseError) {
-            // Handle error
+            errorMessage = "Failed to load workouts: ${error.message}"
+            showErrorSnackbar = true
         }
     })
 
-    // Function to delete a workout
+    fun saveWorkoutLog(workout: Workout) {
+        val workoutLog = WorkoutLog(
+            name = workout.name,
+            duration = workoutDuration,
+            distance = workoutDistance,
+            sets = workoutSets,
+            reps = workoutReps,
+            date = workoutDate
+        )
+        val userId = Firebase.auth.currentUser?.uid ?: return
+        val logRef = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
+        val logId = logRef.push().key ?: return
+        logRef.child(logId).setValue(workoutLog).addOnSuccessListener {
+            showLogWorkoutDialog = false
+            showConfirmationMessage = true
+            workoutName = ""
+            workoutDuration = ""
+            workoutDistance = ""
+            workoutSets = ""
+            workoutReps = ""
+            workoutDate = LocalDate.now().toString()
+        }.addOnFailureListener {
+            errorMessage = "Failed to save log: ${it.message}"
+            showErrorSnackbar = true
+        }
+    }
+
     fun deleteWorkout(workoutIndex: Int) {
         val workoutToDelete = workoutList[workoutIndex]
         db.orderByChild("name").equalTo(workoutToDelete.name).addListenerForSingleValueEvent(object : ValueEventListener {
@@ -96,14 +115,45 @@ fun WorkoutScreen(navController: NavController) {
                 for (child in snapshot.children) {
                     child.ref.removeValue()
                 }
+                showFullScreenDialog = false
             }
 
             override fun onCancelled(error: DatabaseError) {
-                // Handle possible errors
+                errorMessage = "Failed to delete workout: ${error.message}"
+                showErrorSnackbar = true
             }
         })
     }
 
+
+
+    if (showConfirmationMessage) {
+        Snackbar(
+            action = {
+                TextButton(onClick = { showConfirmationMessage = false }) {
+                    Text("OK")
+                }
+            },
+            modifier = Modifier.padding(8.dp)
+        ) {
+            Text("Workout logged successfully")
+        }
+    }
+
+    if (showErrorSnackbar) {
+        Snackbar(
+            action = {
+                TextButton(onClick = { showErrorSnackbar = false }) {
+                    Text("OK")
+                }
+            },
+            modifier = Modifier.padding(8.dp)
+        ) {
+            Text(errorMessage)
+        }
+    }
+
+    // AlertDialog for deleting a workout
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
@@ -125,72 +175,36 @@ fun WorkoutScreen(navController: NavController) {
         )
     }
 
-    if (workoutList.isEmpty()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+    // Full-screen dialog for displaying selected workout details
+    if (showFullScreenDialog && selectedWorkout != null) {
+        Dialog(
+            onDismissRequest = { showFullScreenDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
-            Text("No workouts found for your profile")
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = {
-                    val intent = Intent(currentContext, SearchScreen::class.java)
-                    currentContext.startActivity(intent)
-                },
-                shape = RoundedCornerShape(5.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.LightGray,
-                    contentColor = MaterialTheme.colorScheme.primary
-                )
-            )
-            {
-                Text("Find Workouts")
-            }
-        }
-    } else {
-        LazyColumn(
-            modifier = Modifier
-                .padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 85.dp)
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            item {
-                Text(
-                    text = "Saved Workouts",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                )
-            }
-
-            itemsIndexed(workoutList) { index, workout ->
-                var expanded by remember { mutableStateOf(false) }
-
-                Card(
-                    modifier = Modifier
-                        .clickable { expanded = !expanded }
-                        .padding(8.dp)
-                        .widthIn(min = 350.dp, max = 350.dp)
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
+                    IconButton(
+                        onClick = { showFullScreenDialog = false },
+                        modifier = Modifier.align(Alignment.End)
                     ) {
+                        Icon(Icons.Default.Close, contentDescription = "Close")
+                    }
+
+                    selectedWorkout?.let { workout ->
                         val iconResId = when (workout.type) {
-                            "cardio" -> R.drawable.icon_cardio
-                            "olympic_weightlifting" -> R.drawable.icon_olympic_weighlifting
-                            "plyometrics" -> R.drawable.icon_plyometrics
-                            "powerlifting" -> R.drawable.icon_powerlifting
-                            "strength" -> R.drawable.icon_strength
-                            "stretching" -> R.drawable.icon_stretching
-                            "strongman" -> R.drawable.icon_strongman
-                            else -> R.drawable.icon_strongman
+                            "cardio" -> icon_cardio
+                            "olympic_weightlifting" -> icon_olympic_weighlifting
+                            "plyometrics" -> icon_plyometrics
+                            "powerlifting" -> icon_powerlifting
+                            "strength" -> icon_strength
+                            "stretching" -> icon_stretching
+                            "strongman" -> icon_strongman
+                            else -> icon_strongman
                         }
                         Image(
                             painter = painterResource(id = iconResId),
@@ -199,7 +213,7 @@ fun WorkoutScreen(navController: NavController) {
                         )
 
                         Text(
-                            text = "${workout.name}",
+                            text = workout.name,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.Black
@@ -223,36 +237,205 @@ fun WorkoutScreen(navController: NavController) {
 
                         Spacer(modifier = Modifier.height(4.dp))
 
-                        if (expanded) {
-                            Text(
-                                text = "Muscle Group: ${workout.muscle}",
-                                fontSize = 16.sp
-                            )
+                        Text(
+                            text = "Muscle Group: ${workout.muscle}",
+                            fontSize = 16.sp
+                        )
 
-                            Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
 
-                            Text(
-                                text = "Equipment: ${workout.equipment}",
-                                fontSize = 16.sp
-                            )
+                        Text(
+                            text = "Equipment: ${workout.equipment}",
+                            fontSize = 16.sp
+                        )
 
-                            Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
 
-                            Text(
-                                text = "Instructions: ${workout.instructions}",
-                                fontSize = 16.sp
-                            )
-                        }
+                        Text(
+                            text = "Instructions: ${workout.instructions}",
+                            fontSize = 16.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
 
                         Text(
                             text = "Delete Saved Workout",
                             modifier = Modifier
                                 .padding(top = 8.dp)
                                 .clickable {
-                                    workoutToDeleteIndex = index
+                                    workoutToDeleteIndex = workoutList.indexOf(workout)
                                     showDialog = true
                                 },
                             color = MaterialTheme.colorScheme.error
+                        )
+
+                        Button(onClick = { showLogWorkoutDialog = true }) {
+                            Text("Log Workout")
+                        }
+
+                        if (showLogWorkoutDialog) {
+                            Dialog(onDismissRequest = { showLogWorkoutDialog = false }) {
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    contentColor = MaterialTheme.colorScheme.onSurface
+                                ) {
+                                    Column(modifier = Modifier
+                                        .padding(16.dp)
+                                        .fillMaxWidth()) {
+                                        if (workout.type in listOf("cardio", "stretching")) {
+                                            OutlinedTextField(
+                                                value = workoutDuration,
+                                                onValueChange = { workoutDuration = it },
+                                                label = { Text("Duration (hh:mm:ss)") }
+                                            )
+                                            if (workout.type == "cardio") {
+                                                OutlinedTextField(
+                                                    value = workoutDistance,
+                                                    onValueChange = { workoutDistance = it },
+                                                    label = { Text("Distance (optional)") }
+                                                )
+                                            }
+                                        } else if (workout.type in listOf(
+                                                "olympic_weightlifting",
+                                                "plyometrics",
+                                                "powerlifting",
+                                                "strength",
+                                                "strongman"
+                                            )
+                                        ) {
+                                            OutlinedTextField(
+                                                value = workoutSets,
+                                                onValueChange = { workoutSets = it },
+                                                label = { Text("Sets") }
+
+
+                                            )
+                                            OutlinedTextField(
+                                                value = workoutReps,
+                                                onValueChange = { workoutReps = it },
+                                                label = { Text("Reps") }
+                                            )
+                                        }
+                                        OutlinedTextField(
+                                            value = workoutDate,
+                                            onValueChange = { workoutDate = it },
+                                            label = { Text("Date Completed") }
+                                        )
+                                        Row {
+                                            Button(onClick = { saveWorkoutLog(workout) }) {
+                                                Text("Save")
+                                            }
+                                            Button(onClick = { showLogWorkoutDialog = false }) {
+                                                Text("Cancel")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Main content of the WorkoutScreen
+    if (workoutList.isEmpty()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text("No workouts found for your profile")
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = {
+                    val intent = Intent(currentContext, SearchScreen::class.java)
+                    currentContext.startActivity(intent)
+                },
+                shape = RoundedCornerShape(5.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.LightGray,
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Text("Find Workouts")
+            }
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier
+                .padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 85.dp)
+                .fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            item {
+                Text(
+                    text = "Saved Workouts",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+            }
+
+            itemsIndexed(workoutList) { index, workout ->
+                Card(
+                    modifier = Modifier
+                        .clickable {
+                            selectedWorkout = workout
+                            showFullScreenDialog = true
+                        }
+                        .padding(8.dp)
+                        .widthIn(min = 350.dp, max = 350.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        val iconResId = when (workout.type) {
+                            "cardio" -> R.drawable.icon_cardio
+                            "olympic_weightlifting" -> R.drawable.icon_olympic_weighlifting
+                            "plyometrics" -> R.drawable.icon_plyometrics
+                            "powerlifting" -> R.drawable.icon_powerlifting
+                            "strength" -> R.drawable.icon_strength
+                            "stretching" -> R.drawable.icon_stretching
+                            "strongman" -> R.drawable.icon_strongman
+                            else -> R.drawable.icon_strongman
+                        }
+                        Image(
+                            painter = painterResource(id = iconResId),
+                            contentDescription = "Workout Icon",
+                            modifier = Modifier.size(30.dp)
+                        )
+
+                        Text(
+                            text = workout.name,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Text(
+                            text = "Type: ${workout.type}",
+                            fontSize = 16.sp,
+                            color = Color.Blue
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = "Difficulty: ${workout.difficulty}",
+                            fontSize = 16.sp,
+                            color = Color.Red
                         )
                     }
                 }
@@ -261,13 +444,3 @@ fun WorkoutScreen(navController: NavController) {
     }
 }
 
-
-
-data class Workout(
-    val name: String = "",
-    val type: String = "",
-    val muscle: String = "",
-    val equipment: String = "",
-    val difficulty: String = "",
-    val instructions: String = ""
-)

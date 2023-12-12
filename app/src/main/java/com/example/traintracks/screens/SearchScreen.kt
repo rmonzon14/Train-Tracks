@@ -482,7 +482,7 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
     LaunchedEffect(result) {
         val userId = currentUser?.uid
         if (userId != null) {
-            val db = FirebaseDatabase.getInstance().getReference("users/$userId")
+            val db = FirebaseDatabase.getInstance().getReference("users/$userId/workouts")
             db.addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     if (snapshot.children.any { it.child("name").value == result.name }) {
@@ -621,7 +621,7 @@ private fun addToFirebaseDatabase(result: com.example.traintracks.SearchResult) 
     if (currentUser != null) {
         val userId = currentUser.uid
 
-        val db = FirebaseDatabase.getInstance().getReference("users/$userId").push()
+        val db = FirebaseDatabase.getInstance().getReference("users/$userId/workouts").push()
 
         val workoutData = result.toMap()
 
