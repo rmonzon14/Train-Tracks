@@ -225,6 +225,8 @@ fun WorkoutLogCard(log: WorkoutLog, onDeleteSuccess: () -> Unit, onDeleteFailure
         var editedSets by remember(log.sets.isNotBlank()) { mutableStateOf(log.sets) }
         var editedReps by remember(log.reps.isNotBlank()) { mutableStateOf(log.reps) }
         var editedDuration by remember(log.duration.isNotBlank()) { mutableStateOf(log.duration) }
+        var editedDistance by remember(log.distance) { mutableStateOf(log.distance ?: "") }
+
 
         // Implement the dialog for editing
         AlertDialog(
@@ -265,6 +267,15 @@ fun WorkoutLogCard(log: WorkoutLog, onDeleteSuccess: () -> Unit, onDeleteFailure
                             label = { Text("Duration") }
                         )
                     }
+
+                    // Conditionally show Distance field
+                    if (log.distance != null && log.distance!!.isNotBlank()) {
+                        TextField(
+                            value = editedDistance,
+                            onValueChange = { editedDistance = it },
+                            label = { Text("Distance") }
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -273,12 +284,14 @@ fun WorkoutLogCard(log: WorkoutLog, onDeleteSuccess: () -> Unit, onDeleteFailure
                     log.sets = editedSets
                     log.reps = editedReps
                     log.duration = editedDuration
+                    log.distance = editedDistance
 
                     // Call the update function
                     updateWorkoutLog(log,
                         onSuccess = {
-                            // Handle success, e.g., refresh the UI or show a success message
+                            // Handle success
                             showEditDialog = false
+                            onEditSuccess()
                         },
                         onFailure = { error ->
                             // Handle failure.
