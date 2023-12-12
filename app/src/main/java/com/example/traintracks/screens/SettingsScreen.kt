@@ -257,7 +257,7 @@ fun WorkoutLogCard(log: WorkoutLog, successMessageState: MutableState<String?>, 
         }
 
         // Regex for HH:MM:SS format
-        val regex = "^\\d{2}:\\d{2}:\\d{2}\$".toRegex()
+        val regex = "^\\d{2,}:[0-5]\\d:[0-5]\\d$".toRegex()
 
         // Check if the edited duration matches the regex
         return if (editedDuration.matches(regex)) {

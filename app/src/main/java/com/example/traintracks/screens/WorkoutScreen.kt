@@ -89,11 +89,21 @@ fun WorkoutScreen(navController: NavController) {
         }
     })
 
+    fun isValidDuration(duration: String): Boolean {
+        // Regex to check if duration is in the format HH:MM:SS, allowing hours to exceed 23
+        val regex = "^\\d{2,}:[0-5]\\d:[0-5]\\d$".toRegex()
+        return duration.matches(regex)
+    }
+
     fun isFormValid(workout: Workout): Boolean {
+        showErrorSnackbar = false
+        showConfirmationMessage = false
         if (workoutDate.isBlank() || !workoutDate.matches("\\d{4}-\\d{2}-\\d{2}".toRegex())) {
             errorMessage = "Enter a valid date in format YYYY-MM-DD"
         } else if (workout.type in listOf("cardio", "stretching") && workoutDuration.isBlank()) {
             errorMessage = "Duration is required for this workout type"
+        } else if (workout.type in listOf("cardio", "stretching") && !isValidDuration(workoutDuration)) {
+            errorMessage = "Enter a valid duration in format HH:MM:SS"
         } else if (workout.type in listOf("olympic_weightlifting", "plyometrics", "powerlifting", "strength", "strongman") && workoutSets.isBlank()) {
             errorMessage = "Sets are required for this workout type"
         } else if (workout.type in listOf("olympic_weightlifting", "plyometrics", "powerlifting", "strength", "strongman") && workoutSets.toIntOrNull() == null) {
