@@ -2,7 +2,6 @@ package com.example.traintracks.screens
 
 import android.content.Intent
 import android.os.Build
-import com.example.traintracks.R
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -414,7 +413,7 @@ fun WorkoutScreen(navController: NavController) {
                         )
                     }
 
-                    itemsIndexed(workoutList) { index, workout ->
+                    itemsIndexed(workoutList) { _, workout ->
                         Card(
                             modifier = Modifier
                                 .clickable {
@@ -428,14 +427,14 @@ fun WorkoutScreen(navController: NavController) {
                                 modifier = Modifier.padding(16.dp)
                             ) {
                                 val iconResId = when (workout.type) {
-                                    "cardio" -> R.drawable.icon_cardio
-                                    "olympic_weightlifting" -> R.drawable.icon_olympic_weighlifting
-                                    "plyometrics" -> R.drawable.icon_plyometrics
-                                    "powerlifting" -> R.drawable.icon_powerlifting
-                                    "strength" -> R.drawable.icon_strength
-                                    "stretching" -> R.drawable.icon_stretching
-                                    "strongman" -> R.drawable.icon_strongman
-                                    else -> R.drawable.icon_strongman
+                                    "cardio" -> icon_cardio
+                                    "olympic_weightlifting" -> icon_olympic_weighlifting
+                                    "plyometrics" -> icon_plyometrics
+                                    "powerlifting" -> icon_powerlifting
+                                    "strength" -> icon_strength
+                                    "stretching" -> icon_stretching
+                                    "strongman" -> icon_strongman
+                                    else -> icon_strongman
                                 }
                                 Image(
                                     painter = painterResource(id = iconResId),
