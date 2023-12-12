@@ -2,11 +2,11 @@ package com.example.traintracks
 
 data class WorkoutLog(
     val id: String = "",
-    val name: String = "",
-    val duration: String = "",
+    var name: String = "",
+    var duration: String = "",
     val distance: String? = null,
-    val sets: String = "",
-    val reps: String = "",
+    var sets: String = "",
+    var reps: String = "",
     val date: String = ""
 ) {
     // Add a parameterless constructor

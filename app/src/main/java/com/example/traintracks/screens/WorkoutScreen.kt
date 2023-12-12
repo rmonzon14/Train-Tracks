@@ -85,6 +85,20 @@ fun WorkoutScreen(navController: NavController) {
         }
     })
 
+    fun isFormValid(workout: Workout): Boolean {
+        when {
+            workoutDate.isBlank() || !workoutDate.matches("\\d{4}-\\d{2}-\\d{2}".toRegex()) -> errorMessage = "Enter a valid date in format YYYY-MM-DD"
+            workout.type in listOf("cardio", "stretching") && workoutDuration.isBlank() -> errorMessage = "Duration is required for this workout type"
+            workout.type in listOf("olympic_weightlifting", "plyometrics", "powerlifting", "strength", "strongman") && workoutSets.isBlank() -> errorMessage = "Sets are required for this workout type"
+            workout.type in listOf("olympic_weightlifting", "plyometrics", "powerlifting", "strength", "strongman") && workoutSets.toIntOrNull() == null -> errorMessage = "Sets must be an integer"
+            workout.type in listOf("olympic_weightlifting", "plyometrics", "powerlifting", "strength", "strongman") && workoutReps.isBlank() -> errorMessage = "Reps are required for this workout type"
+            workout.type in listOf("olympic_weightlifting", "plyometrics", "powerlifting", "strength", "strongman") && workoutReps.toIntOrNull() == null -> errorMessage = "Reps must be an integer"
+            else -> return true
+        }
+        showErrorSnackbar = true
+        return false
+    }
+
     fun saveWorkoutLog(workout: Workout) {
         val userId = Firebase.auth.currentUser?.uid ?: return
         val logRef = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
@@ -98,9 +112,11 @@ fun WorkoutScreen(navController: NavController) {
             reps = workoutReps,
             date = workoutDate
         )
+        if (!isFormValid(workout)) return
         logRef.child(logId).setValue(workoutLog).addOnSuccessListener {
             showLogWorkoutDialog = false
             showConfirmationMessage = true
+            showErrorSnackbar = false
             workoutName = ""
             workoutDuration = ""
             workoutDistance = ""
@@ -172,7 +188,9 @@ fun WorkoutScreen(navController: NavController) {
                     if (showConfirmationMessage) {
                         Snackbar(
                             action = {
-                                TextButton(onClick = { showConfirmationMessage = false }) {
+                                TextButton(onClick = {
+                                    showConfirmationMessage = false
+                                }) {
                                     Text("OK")
                                 }
                             },

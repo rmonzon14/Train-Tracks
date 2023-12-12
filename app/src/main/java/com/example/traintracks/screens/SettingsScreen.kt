@@ -4,8 +4,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -42,17 +44,36 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TextField
 
 @Composable
 fun SettingsScreen(navController: NavController) {
     val auth = FirebaseAuth.getInstance()
     val userId = auth.currentUser?.uid ?: return
-
     val db = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
 
     var workoutLogs by remember { mutableStateOf<List<WorkoutLog>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    fun refreshWorkoutLogs() {
+        isLoading = true
+        db.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                workoutLogs = snapshot.children.mapNotNull { it.getValue(WorkoutLog::class.java) }
+                    .asReversed()
+                    .sortedByDescending { it.date }
+                isLoading = false
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                isLoading = false
+                errorMessage = error.message
+            }
+        })
+    }
 
     LaunchedEffect(Unit) {
         db.addValueEventListener(object : ValueEventListener {
@@ -131,7 +152,12 @@ fun SettingsScreen(navController: NavController) {
                         )
                     }
                     items(workoutLogs) { log ->
-                        WorkoutLogCard(log = log, onDeleteSuccess = onDeleteSuccess, onDeleteFailure = onDeleteFailure)
+                        WorkoutLogCard(
+                            log = log,
+                            onDeleteSuccess = { refreshWorkoutLogs() },
+                            onDeleteFailure = { errorMessage = it },
+                            onEditSuccess = { refreshWorkoutLogs() }
+                        )
                     }
                 }
             }
@@ -140,9 +166,37 @@ fun SettingsScreen(navController: NavController) {
 }
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WorkoutLogCard(log: WorkoutLog, onDeleteSuccess: () -> Unit, onDeleteFailure: (String) -> Unit) {
+fun WorkoutLogCard(log: WorkoutLog, onDeleteSuccess: () -> Unit, onDeleteFailure: (String) -> Unit, onEditSuccess: () -> Unit) {
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var successMessage by remember { mutableStateOf<String?>(null) }
+
+    fun deleteWorkoutLog(logId: String, onSuccess: () -> Unit, onFailure: (String) -> Unit) {
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val db = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
+
+        db.child(logId).removeValue().addOnSuccessListener {
+            onSuccess()
+        }.addOnFailureListener {
+            onFailure(it.message ?: "An unknown error occurred")
+        }
+    }
+
+    fun updateWorkoutLog(updatedLog: WorkoutLog, onSuccess: () -> Unit, onFailure: (String) -> Unit) {
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val db = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
+
+        db.child(updatedLog.id).setValue(updatedLog)
+            .addOnSuccessListener {
+                onSuccess()
+            }
+            .addOnFailureListener {
+                onFailure(it.message ?: "An unknown error occurred")
+            }
+    }
 
     if (showDeleteDialog) {
         AlertDialog(
@@ -159,6 +213,84 @@ fun WorkoutLogCard(log: WorkoutLog, onDeleteSuccess: () -> Unit, onDeleteFailure
             },
             dismissButton = {
                 Button(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Edit dialog
+    if (showEditDialog) {
+        var editedName by remember { mutableStateOf(log.name) }
+        var editedSets by remember(log.sets.isNotBlank()) { mutableStateOf(log.sets) }
+        var editedReps by remember(log.reps.isNotBlank()) { mutableStateOf(log.reps) }
+        var editedDuration by remember(log.duration.isNotBlank()) { mutableStateOf(log.duration) }
+
+        // Implement the dialog for editing
+        AlertDialog(
+            onDismissRequest = { showEditDialog = false },
+            title = { Text("Edit Workout Log") },
+            text = {
+                Column {
+                    // Name field
+                    TextField(
+                        value = editedName,
+                        onValueChange = { editedName = it },
+                        label = { Text("Name") }
+                    )
+
+                    // Conditionally show Sets field
+                    if (log.sets.isNotBlank()) {
+                        TextField(
+                            value = editedSets,
+                            onValueChange = { editedSets = it },
+                            label = { Text("Sets") }
+                        )
+                    }
+
+                    // Conditionally show Reps field
+                    if (log.reps.isNotBlank()) {
+                        TextField(
+                            value = editedReps,
+                            onValueChange = { editedReps = it },
+                            label = { Text("Reps") }
+                        )
+                    }
+
+                    // Conditionally show Duration field
+                    if (log.duration.isNotBlank()) {
+                        TextField(
+                            value = editedDuration,
+                            onValueChange = { editedDuration = it },
+                            label = { Text("Duration") }
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    log.name = editedName
+                    log.sets = editedSets
+                    log.reps = editedReps
+                    log.duration = editedDuration
+
+                    // Call the update function
+                    updateWorkoutLog(log,
+                        onSuccess = {
+                            // Handle success, e.g., refresh the UI or show a success message
+                            showEditDialog = false
+                        },
+                        onFailure = { error ->
+                            // Handle failure.
+                            errorMessage = error
+                        }
+                    )
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { showEditDialog = false }) {
                     Text("Cancel")
                 }
             }
@@ -228,25 +360,52 @@ fun WorkoutLogCard(log: WorkoutLog, onDeleteSuccess: () -> Unit, onDeleteFailure
                     }
                 }
 
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete Workout Log",
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clickable { showDeleteDialog = true }
-                )
+                Column{
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit Workout Log",
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clickable { showEditDialog = true }
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete Workout Log",
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clickable { showDeleteDialog = true }
+                    )
+                }
+            }
+            errorMessage?.let { msg ->
+                Snackbar(
+                    action = {
+                        TextButton(onClick = { errorMessage = null }) {
+                            Text("OK")
+                        }
+                    },
+                    modifier = Modifier.padding(8.dp)
+                ) {
+                    Text(msg)
+                }
+            }
+
+            successMessage?.let { msg ->
+                Snackbar(
+                    action = {
+                        TextButton(onClick = { successMessage = null }) {
+                            Text("OK")
+                        }
+                    },
+                    modifier = Modifier.padding(8.dp)
+                ) {
+                    Text(msg)
+                }
             }
         }
     }
 }
 
-fun deleteWorkoutLog(logId: String, onSuccess: () -> Unit, onFailure: (String) -> Unit) {
-    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
-    val db = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
-
-    db.child(logId).removeValue().addOnSuccessListener {
-        onSuccess()
-    }.addOnFailureListener {
-        onFailure(it.message ?: "An unknown error occurred")
-    }
-}
