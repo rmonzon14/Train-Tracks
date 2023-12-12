@@ -1,6 +1,7 @@
 package com.example.traintracks
 
 data class WorkoutLog(
+    val id: String = "",
     val name: String = "",
     val duration: String = "",
     val distance: String? = null,
@@ -9,5 +10,5 @@ data class WorkoutLog(
     val date: String = ""
 ) {
     // Add a parameterless constructor
-    constructor() : this("", "", null, "", "", "")
+    constructor() : this("","", "", null, "", "", "")
 }

@@ -37,6 +37,8 @@ import com.example.traintracks.R.drawable.*
 import com.example.traintracks.Workout
 import com.example.traintracks.WorkoutLog
 import com.google.firebase.auth.auth
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 
 private lateinit var auth: FirebaseAuth
 private lateinit var db: DatabaseReference
@@ -82,7 +84,11 @@ fun WorkoutScreen(navController: NavController) {
     })
 
     fun saveWorkoutLog(workout: Workout) {
+        val userId = Firebase.auth.currentUser?.uid ?: return
+        val logRef = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
+        val logId = logRef.push().key ?: return
         val workoutLog = WorkoutLog(
+            id = logId,
             name = workout.name,
             duration = workoutDuration,
             distance = workoutDistance,
@@ -90,9 +96,6 @@ fun WorkoutScreen(navController: NavController) {
             reps = workoutReps,
             date = workoutDate
         )
-        val userId = Firebase.auth.currentUser?.uid ?: return
-        val logRef = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
-        val logId = logRef.push().key ?: return
         logRef.child(logId).setValue(workoutLog).addOnSuccessListener {
             showLogWorkoutDialog = false
             showConfirmationMessage = true
@@ -123,34 +126,6 @@ fun WorkoutScreen(navController: NavController) {
                 showErrorSnackbar = true
             }
         })
-    }
-
-
-
-    if (showConfirmationMessage) {
-        Snackbar(
-            action = {
-                TextButton(onClick = { showConfirmationMessage = false }) {
-                    Text("OK")
-                }
-            },
-            modifier = Modifier.padding(8.dp)
-        ) {
-            Text("Workout logged successfully")
-        }
-    }
-
-    if (showErrorSnackbar) {
-        Snackbar(
-            action = {
-                TextButton(onClick = { showErrorSnackbar = false }) {
-                    Text("OK")
-                }
-            },
-            modifier = Modifier.padding(8.dp)
-        ) {
-            Text(errorMessage)
-        }
     }
 
     // AlertDialog for deleting a workout
@@ -185,11 +160,44 @@ fun WorkoutScreen(navController: NavController) {
                 modifier = Modifier.fillMaxSize(),
                 color = MaterialTheme.colorScheme.background
             ) {
+                val scrollState = rememberScrollState()
+
                 Column(
-                    modifier = Modifier.padding(20.dp),
+                    modifier = Modifier
+                        .padding(20.dp)
+                        .verticalScroll(scrollState),
                 ) {
+                    if (showConfirmationMessage) {
+                        Snackbar(
+                            action = {
+                                TextButton(onClick = { showConfirmationMessage = false }) {
+                                    Text("OK")
+                                }
+                            },
+                            modifier = Modifier.padding(8.dp)
+                        ) {
+                            Text("Workout logged successfully")
+                        }
+                    }
+
+                    if (showErrorSnackbar) {
+                        Snackbar(
+                            action = {
+                                TextButton(onClick = { showErrorSnackbar = false }) {
+                                    Text("OK")
+                                }
+                            },
+                            modifier = Modifier.padding(8.dp)
+                        ) {
+                            Text(errorMessage)
+                        }
+                    }
                     IconButton(
-                        onClick = { showFullScreenDialog = false },
+                        onClick = {
+                            showFullScreenDialog = false
+                            showConfirmationMessage = false
+                            showErrorSnackbar = false
+                                  },
                         modifier = Modifier.align(Alignment.End)
                     ) {
                         Icon(Icons.Default.Close, contentDescription = "Close")
@@ -284,6 +292,18 @@ fun WorkoutScreen(navController: NavController) {
                                     Column(modifier = Modifier
                                         .padding(16.dp)
                                         .fillMaxWidth()) {
+                                        if (showConfirmationMessage) {
+                                            Snackbar(
+                                                action = {
+                                                    TextButton(onClick = { showConfirmationMessage = false }) {
+                                                        Text("OK")
+                                                    }
+                                                },
+                                                modifier = Modifier.padding(8.dp)
+                                            ) {
+                                                Text("Workout logged successfully")
+                                            }
+                                        }
                                         if (workout.type in listOf("cardio", "stretching")) {
                                             OutlinedTextField(
                                                 value = workoutDuration,
@@ -380,9 +400,10 @@ fun WorkoutScreen(navController: NavController) {
             item {
                 Text(
                     text = "Saved Workouts",
-                    fontSize = 24.sp,
+                    modifier = Modifier.padding(bottom = 16.dp),
+                    style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Black
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
 
