@@ -8,12 +8,12 @@ import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.List
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -68,15 +68,16 @@ fun BottomNavBar() {
             unselectedIcon = Icons.Outlined.Star,
         ),
         BottomNavigationItem(
+            title = "Log",
+            selectedIcon = Icons.Filled.List,
+            unselectedIcon = Icons.Outlined.List,
+        ),
+        BottomNavigationItem(
             title = "Profile",
             selectedIcon = Icons.Filled.Person,
             unselectedIcon = Icons.Outlined.Person,
         ),
-        BottomNavigationItem(
-            title = "Settings",
-            selectedIcon = Icons.Filled.Settings,
-            unselectedIcon = Icons.Outlined.Settings,
-        ),
+
     )
     var selectedItemIndex by rememberSaveable {
         mutableStateOf(0)
@@ -120,12 +121,13 @@ fun BottomNavBar() {
         composable("Workout") {
             WorkoutScreen()
         }
+        composable("Log") {
+            SettingsScreen()
+        }
         composable("Profile") {
             ProfileScreen()
         }
-        composable("Settings") {
-            SettingsScreen()
-        }
+
     }
 }
 

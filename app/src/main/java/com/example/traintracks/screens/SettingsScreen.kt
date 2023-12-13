@@ -45,6 +45,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.MutableState
+import androidx.compose.ui.res.painterResource
+import com.example.traintracks.R
 import com.google.android.gms.tasks.Tasks
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -54,20 +56,39 @@ import java.util.Locale
 fun SettingsScreen() {
     val auth = FirebaseAuth.getInstance()
     val userId = auth.currentUser?.uid ?: return
-    val db = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
+    val logsDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
+    val notesDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/notes")
 
     var workoutLogs by remember { mutableStateOf<List<WorkoutLog>>(emptyList()) }
+    var notesData by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var isLoading by remember { mutableStateOf(true) }
     val errorMessage = remember { mutableStateOf<String?>(null) }
     val successMessage = remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
-        db.addValueEventListener(object : ValueEventListener {
+        logsDbRef.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 workoutLogs = snapshot.children.mapNotNull { it.getValue(WorkoutLog::class.java) }
                     .asReversed()
                     .sortedByDescending { it.date }
                 isLoading = false
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                isLoading = false
+                errorMessage.value = error.message
+            }
+        })
+
+        notesDbRef.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val notesMap = mutableMapOf<String, String>()
+                snapshot.children.forEach { child ->
+                    val noteId = child.child("id").getValue(String::class.java) ?: ""
+                    val noteText = child.child("note").getValue(String::class.java) ?: ""
+                    notesMap[noteId] = noteText
+                }
+                notesData = notesMap.toMap()
             }
 
             override fun onCancelled(error: DatabaseError) {
@@ -132,6 +153,7 @@ fun SettingsScreen() {
                         items(workoutLogs) { log ->
                             WorkoutLogCard(
                                 log = log,
+                                noteText = notesData[log.id] ?: "",
                                 successMessageState = successMessage,
                                 errorMessageState = errorMessage
                             )
@@ -149,17 +171,24 @@ fun SettingsScreen() {
 @Composable
 fun WorkoutLogCard(
     log: WorkoutLog,
+    noteText: String,
     successMessageState: MutableState<String?>,
     errorMessageState: MutableState<String?>
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
+    var showAddNoteDialog by remember { mutableStateOf(false) }
+    var showDeleteNoteDialog by remember { mutableStateOf(false) }
+    var showEditNoteDialog by remember { mutableStateOf(false) }
+    var editNoteText by remember { mutableStateOf(noteText) }
     var editedName by remember { mutableStateOf(log.name) }
     var editedSets by remember(log.sets.isNotBlank()) { mutableStateOf(log.sets) }
     var editedReps by remember(log.reps.isNotBlank()) { mutableStateOf(log.reps) }
     var editedDate by remember { mutableStateOf(log.date) }
     var editedDuration by remember(log.duration.isNotBlank()) { mutableStateOf(log.duration) }
     var editedDistance by remember(log.distance) { mutableStateOf(log.distance ?: "") }
+    var noteInputText by remember { mutableStateOf("") }
+    val hasNote = noteText.isNotEmpty()
 
     fun resetForm() {
         // Reset error messages
@@ -180,12 +209,15 @@ fun WorkoutLogCard(
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val logsDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
         val pointsDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/points")
+        val notesDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/notes")
 
         val task1 = logsDbRef.child(logId).removeValue()
         val task2 = pointsDbRef.child(logId).removeValue()
+        val task3 = notesDbRef.child(logId).removeValue()
 
-        Tasks.whenAll(task1, task2).addOnSuccessListener {
-            successMessageState.value = "Workout log successfully deleted."
+        // Use the Firebase Tasks API to handle all deletions concurrently
+        Tasks.whenAll(task1, task2, task3).addOnSuccessListener {
+            successMessageState.value = "Workout log and related data successfully deleted."
             errorMessageState.value = null
             onSuccess()
         }.addOnFailureListener {
@@ -347,6 +379,131 @@ fun WorkoutLogCard(
                 successMessageState.value = null
             })
         }
+    }
+
+    fun saveNoteToFirebase(logId: String, noteText: String) {
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val notesDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/notes")
+
+        val note = mapOf(
+            "id" to logId,
+            "note" to noteText
+        )
+        notesDbRef.child(logId).setValue(note).addOnSuccessListener {
+            successMessageState.value = "Note added successfully."
+        }.addOnFailureListener {
+            errorMessageState.value = "Failed to add note: ${it.message}"
+        }
+    }
+
+    fun deleteNoteFromFirebase(logId: String, successMessageState: MutableState<String?>, errorMessageState: MutableState<String?>) {
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val notesDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/notes")
+
+        notesDbRef.child(logId).removeValue().addOnSuccessListener {
+            successMessageState.value = "Note deleted successfully."
+        }.addOnFailureListener {
+            errorMessageState.value = "Failed to delete note: ${it.message}"
+        }
+    }
+
+    fun updateNoteFromFirebase(logId: String, updatedNoteText: String, successMessageState: MutableState<String?>, errorMessageState: MutableState<String?>) {
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val notesDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/notes")
+
+        val updatedNote = mapOf(
+            "id" to logId,
+            "note" to updatedNoteText
+        )
+        notesDbRef.child(logId).setValue(updatedNote).addOnSuccessListener {
+            successMessageState.value = "Note updated successfully."
+        }.addOnFailureListener {
+            errorMessageState.value = "Failed to update note: ${it.message}"
+        }
+    }
+
+
+    if (showAddNoteDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddNoteDialog = false },
+            title = { Text("Add a Note") },
+            text = {
+                TextField(
+                    value = noteInputText,
+                    onValueChange = { if (it.length <= 250) noteInputText = it },
+                    label = { Text("Note") }
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    if (noteInputText.isNotBlank()) {
+                        // Save note to Firebase using noteInputText
+                        saveNoteToFirebase(log.id, noteInputText)
+                        showAddNoteDialog = false
+                    } else {
+                        // Show error message
+                        errorMessageState.value = "Note cannot be empty"
+                    }
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { showAddNoteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Dialog for deleting a note
+    if (showDeleteNoteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteNoteDialog = false },
+            title = { Text("Delete Note") },
+            text = { Text("Are you sure you want to delete this note?") },
+            confirmButton = {
+                Button(onClick = {
+                    deleteNoteFromFirebase(log.id, successMessageState, errorMessageState)
+                    showDeleteNoteDialog = false
+                }) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { showDeleteNoteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Dialog for editing a note
+    if (showEditNoteDialog) {
+        AlertDialog(
+            onDismissRequest = { showEditNoteDialog = false },
+            title = { Text("Edit Note") },
+            text = {
+                TextField(
+                    value = editNoteText,
+                    onValueChange = { if (it.length <= 250) editNoteText = it },
+                    label = { Text("Note") }
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    updateNoteFromFirebase(log.id, editNoteText, successMessageState, errorMessageState)
+                    showEditNoteDialog = false
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { showEditNoteDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     if (showDeleteDialog) {
@@ -512,14 +669,33 @@ fun WorkoutLogCard(
                             )
                         }
                     }
+
+                    if (hasNote) {
+                        Text(
+                            text = noteText,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 }
 
                 Column{
+                    if (!hasNote) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.add_note),
+                            contentDescription = "Add Note",
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clickable { showAddNoteDialog = true }
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = "Edit Workout Log",
                         modifier = Modifier
-                            .size(24.dp)
+                            .size(28.dp)
                             .clickable {
                                 resetForm()
                                 showEditDialog = true
@@ -532,9 +708,36 @@ fun WorkoutLogCard(
                         imageVector = Icons.Default.Delete,
                         contentDescription = "Delete Workout Log",
                         modifier = Modifier
-                            .size(24.dp)
+                            .size(28.dp)
                             .clickable { showDeleteDialog = true }
                     )
+
+                    if (hasNote) {
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Icon(
+                            painter = painterResource(id = R.drawable.edit_note),
+                            contentDescription = "Edit Note",
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clickable {
+                                    editNoteText = noteText // Set the current note text before opening the dialog
+                                    showEditNoteDialog = true
+                                }
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Icon(
+                            painter = painterResource(id = R.drawable.delete_note),
+                            contentDescription = "Delete Note",
+                            modifier = Modifier
+                                .size(26.dp)
+                                .clickable { showDeleteNoteDialog = true }
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
             }
         }
