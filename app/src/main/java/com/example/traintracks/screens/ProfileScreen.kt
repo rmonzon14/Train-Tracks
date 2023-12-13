@@ -60,12 +60,21 @@ fun ProfileScreen() {
                     totalPoints.value = pointsSum
 
                     // Calculate level based on points
-                    level.value = (pointsSum / 250) + 1
+                    level.value = (pointsSum / 100) + 1
                     levelMessage.value = when (level.value) {
-                        in 1..9 -> "Great job reaching level ${level.value}!"
+                        1 -> "Off to a great start! Keep pushing yourself!"
+                        2 -> "Level up! You're taking this seriously, and it shows."
+                        3 -> "Fantastic work! Your dedication is inspiring."
+                        4 -> "Level 4 already? You’re on fire!"
+                        5 -> "Halfway to the top! Your progress is amazing."
+                        6 -> "Unstoppable! Level 6 is just a stepping stone to greater heights."
+                        7 -> "Lucky 7! Your commitment is paying off in spades."
+                        8 -> "Level 8 achieved! You're an inspiration to many."
+                        9 -> "Just one step away from the top! Your journey is awe-inspiring."
                         10 -> "You have reached the highest level! You are as fit as a fiddle!"
                         else -> "Continue your fitness journey!"
                     }
+
                 }
 
                 override fun onCancelled(error: DatabaseError) {
