@@ -164,6 +164,8 @@ fun WorkoutScreen() {
         val workoutLog = WorkoutLog(
             id = logId,
             name = workout.name,
+            type = workout.type,
+            difficulty = workout.difficulty,
             duration = workoutDuration,
             distance = workoutDistance,
             sets = workoutSets,
@@ -468,7 +470,7 @@ fun WorkoutScreen() {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(24.dp),
+                        .padding(22.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
@@ -516,10 +518,9 @@ fun WorkoutScreen() {
                                     selectedWorkout = workout
                                     showFullScreenDialog = true
                                 }
-                                .padding(8.dp)
                                 .widthIn(min = 350.dp, max = 350.dp)
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)){
+                            Column(modifier = Modifier.padding(8.dp)){
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
