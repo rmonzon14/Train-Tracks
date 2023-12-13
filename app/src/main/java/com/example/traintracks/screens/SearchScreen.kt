@@ -1,12 +1,10 @@
 package com.example.traintracks.screens
 
-import android.app.appsearch.SearchResult
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.VectorConverter
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -42,9 +40,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarColors
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,26 +61,19 @@ import com.example.traintracks.R
 import com.example.traintracks.SearchApiService
 import com.example.traintracks.ui.theme.TrainTracksTheme
 import com.google.firebase.Firebase
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
-import com.google.firebase.auth.ktx.auth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
-import com.google.firebase.database.database
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import org.json.JSONArray
 import retrofit2.HttpException
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 class SearchScreen : ComponentActivity() {
-
-    private lateinit var auth : FirebaseAuth
-    private lateinit var db  : DatabaseReference
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -255,6 +243,7 @@ fun WorkoutTypeField(
             "strength",
             "stretching",
             "strongman")
+
     var expanded by remember { mutableStateOf(false) }
     var selectedText by remember { mutableStateOf(value) }
 
@@ -522,6 +511,7 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
                 "strongman" -> R.drawable.icon_strongman
                 else -> R.drawable.icon_strongman
             }
+
             Image(
                 painter = painterResource(id = iconResId),
                 contentDescription = "Workout Icon",
@@ -539,7 +529,7 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
             Text(
                 text = result.type,
                 fontSize = 18.sp,
-                color = Color.Blue
+                color = getTypeColor(result.type)
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -547,7 +537,7 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
             Text(
                 text = "Difficulty: ${result.difficulty}",
                 fontSize = 18.sp,
-                color = Color.Red
+                color = getDifficultyColor(result.difficulty)
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -640,12 +630,36 @@ fun com.example.traintracks.SearchResult.toMap(): Map<String, Any?> {
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+fun getDifficultyColor(difficulty: String): Color {
+    val darkGreen = Color(0xFF006400)
+    val darkOrange = Color(0xFFCC8400)
+    val darkRed = Color(0xFFCD5C5C)
+    return when (difficulty) {
+        "beginner" -> darkGreen
+        "intermediate" -> darkOrange
+        "expert" -> darkRed
+        else -> Color.Gray
+    }
+}
+
+fun getTypeColor(type: String): Color {
+    return when (type) {
+        "cardio" -> Color(0xFF800000) // Silver
+        "olympic_weightlifting" -> Color(0xFFFF8F00) // Amber
+        "plyometrics" -> Color(0xFFF124AA) // Magenta
+        "powerlifting" -> Color(0xFF1A237E) // Deep Blue
+        "strength" -> Color(0xFF673AB7) // Deep Purple
+        "stretching" -> Color(0xFF008B8B) // Teal
+        "strongman" -> Color(0xFF6D4C41) // Brown
+        else -> Color.Gray
+    }
+}
+
+@OptIn(DelicateCoroutinesApi::class)
 @Preview
 @Composable
 fun SearchScreenContent() {
     var searchClicked by remember { mutableStateOf(false) }
-    val currentContext = LocalContext.current
     var searchResults by remember { mutableStateOf<List<com.example.traintracks.SearchResult>>(emptyList()) }
 
     if (searchClicked) {
