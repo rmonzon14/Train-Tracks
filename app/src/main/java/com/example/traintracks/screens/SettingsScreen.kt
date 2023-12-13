@@ -472,12 +472,18 @@ fun WorkoutLogCard(
                         errorMessageState.value = "Note cannot be empty"
                     }
                 }) {
-                    Text("Save")
+                    Text(
+                        text = "Save",
+                        color = MaterialTheme.colorScheme.secondary
+                    )
                 }
             },
             dismissButton = {
                 Button(onClick = { showAddNoteDialog = false }) {
-                    Text("Cancel")
+                    Text(
+                        text = "Cancel",
+                        color = MaterialTheme.colorScheme.secondary
+                    )
                 }
             }
         )
@@ -494,12 +500,18 @@ fun WorkoutLogCard(
                     deleteNoteFromFirebase(log.id, successMessageState, errorMessageState)
                     showDeleteNoteDialog = false
                 }) {
-                    Text("Confirm")
+                    Text(
+                        text = "Confirm",
+                        color = MaterialTheme.colorScheme.secondary
+                    )
                 }
             },
             dismissButton = {
                 Button(onClick = { showDeleteNoteDialog = false }) {
-                    Text("Cancel")
+                    Text(
+                       text = "Cancel",
+                       color = MaterialTheme.colorScheme.secondary
+                    )
                 }
             }
         )
@@ -522,12 +534,18 @@ fun WorkoutLogCard(
                     updateNoteFromFirebase(log.id, editNoteText, successMessageState, errorMessageState)
                     showEditNoteDialog = false
                 }) {
-                    Text("Save")
+                    Text(
+                        text = "Save",
+                        color = MaterialTheme.colorScheme.secondary
+                    )
                 }
             },
             dismissButton = {
                 Button(onClick = { showEditNoteDialog = false }) {
-                    Text("Cancel")
+                    Text(
+                        text = "Cancel",
+                        color = MaterialTheme.colorScheme.secondary
+                    )
                 }
             }
         )
@@ -549,12 +567,18 @@ fun WorkoutLogCard(
                         errorMessageState.value = it
                     })
                 }) {
-                    Text("Confirm")
+                    Text(
+                        text = "Confirm",
+                        color = MaterialTheme.colorScheme.secondary
+                    )
                 }
             },
             dismissButton = {
                 Button(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
+                    Text(
+                        text = "Cancel",
+                        color = MaterialTheme.colorScheme.secondary
+                    )
                 }
             }
         )
@@ -623,13 +647,19 @@ fun WorkoutLogCard(
                         println("Validation failed: ${errorMessageState.value}")
                     }
                 }) {
-                    Text("Save")
+                    Text(
+                        text = "Save",
+                        color = MaterialTheme.colorScheme.secondary
+                    )
                 }
 
             },
             dismissButton = {
                 Button(onClick = { showEditDialog = false }) {
-                    Text("Cancel")
+                    Text(
+                        text = "Cancel",
+                        color = MaterialTheme.colorScheme.secondary
+                    )
                 }
             }
         )

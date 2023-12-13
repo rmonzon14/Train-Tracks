@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -92,10 +93,10 @@ fun ProfileScreen() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "${currentUser?.email ?: "User"}",
+            text = "Email: ${currentUser?.email ?: "User"}",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.secondary
         )
 
         Spacer(Modifier.height(12.dp))
@@ -105,7 +106,7 @@ fun ProfileScreen() {
             text = "Total Points: ${totalPoints.value}",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.secondary
         )
 
         Spacer(Modifier.height(10.dp))
@@ -114,7 +115,7 @@ fun ProfileScreen() {
             text = "Level: ${level.value}",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.secondary
         )
 
         Spacer(Modifier.height(10.dp))
@@ -123,7 +124,8 @@ fun ProfileScreen() {
             text = levelMessage.value,
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.secondary
+            color = MaterialTheme.colorScheme.primary,
+            fontSize = 19.sp
         )
 
         Spacer(Modifier.height(30.dp))

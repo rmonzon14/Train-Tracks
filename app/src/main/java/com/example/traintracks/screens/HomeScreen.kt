@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -64,6 +65,7 @@ fun HomeScreen(navController: NavController) {
                 text = "Welcome!",
                 style = MaterialTheme.typography.headlineSmall,
                 color = Color.White,
+                fontWeight = FontWeight.Bold,
                 fontSize = 50.sp,
                 modifier = Modifier
                     .padding(bottom = 16.dp)

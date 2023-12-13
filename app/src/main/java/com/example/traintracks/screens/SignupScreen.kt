@@ -140,8 +140,8 @@ fun SignUp(
                 .fillMaxWidth()
                 .padding(8.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color.LightGray,
-                contentColor = MaterialTheme.colorScheme.primary
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.secondary
             )
         ) {
             Text(

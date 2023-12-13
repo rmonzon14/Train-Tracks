@@ -153,7 +153,7 @@ fun Search(
         Text(
             text = "Workout Search",
             color = Color.White,
-            fontSize = 50.sp,
+            fontSize = 30.sp,
             fontWeight = FontWeight.ExtraBold
         )
         WorkoutNameField(

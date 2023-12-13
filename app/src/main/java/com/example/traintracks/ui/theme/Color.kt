@@ -16,7 +16,7 @@ sealed class ThemeColors(
     object Day : ThemeColors(
         background = Color(0xFF000000),
         surface = Color(0xFF000000),
-        primary = Color(0xFF484848),
+        primary = Color(0xFF41593A),
         text = Color(0xffffffff)
     )
 }
