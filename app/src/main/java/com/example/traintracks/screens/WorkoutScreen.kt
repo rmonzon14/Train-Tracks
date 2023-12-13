@@ -36,6 +36,7 @@ import com.example.traintracks.WorkoutLog
 import com.google.firebase.auth.auth
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.text.style.TextOverflow
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -84,6 +85,31 @@ fun WorkoutScreen() {
             isLoading = false
         }
     })
+
+    fun getDifficultyColor(difficulty: String): Color {
+        val darkGreen = Color(0xFF006400)
+        val darkOrange = Color(0xFFCC8400)
+        val darkRed = Color(0xFFCD5C5C)
+        return when (difficulty) {
+            "beginner" -> darkGreen
+            "intermediate" -> darkOrange
+            "expert" -> darkRed
+            else -> Color.Gray
+        }
+    }
+
+    fun getTypeColor(type: String): Color {
+        return when (type) {
+            "cardio" -> Color(0xFF800000) // Silver
+            "olympic_weightlifting" -> Color(0xFFFF8F00) // Amber
+            "plyometrics" -> Color(0xFFF124AA) // Magenta
+            "powerlifting" -> Color(0xFF1A237E) // Deep Blue
+            "strength" -> Color(0xFF673AB7) // Deep Purple
+            "stretching" -> Color(0xFF008B8B) // Teal
+            "strongman" -> Color(0xFF6D4C41) // Brown
+            else -> Color.Gray
+        }
+    }
 
     fun isValidDuration(duration: String): Boolean {
         // Regex to check if duration is in the format HH:MM:SS, allowing hours to exceed 23
@@ -138,6 +164,8 @@ fun WorkoutScreen() {
         val workoutLog = WorkoutLog(
             id = logId,
             name = workout.name,
+            type = workout.type,
+            difficulty = workout.difficulty,
             duration = workoutDuration,
             distance = workoutDistance,
             sets = workoutSets,
@@ -281,12 +309,12 @@ fun WorkoutScreen() {
                         Image(
                             painter = painterResource(id = iconResId),
                             contentDescription = "Workout Icon",
-                            modifier = Modifier.size(30.dp)
+                            modifier = Modifier.size(50.dp)
                         )
 
                         Text(
                             text = workout.name,
-                            fontSize = 20.sp,
+                            fontSize = 22.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.Black
                         )
@@ -295,37 +323,42 @@ fun WorkoutScreen() {
 
                         Text(
                             text = "Type: ${workout.type}",
-                            fontSize = 16.sp,
-                            color = Color.Blue
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = getTypeColor(workout.type)
                         )
 
                         Spacer(modifier = Modifier.height(4.dp))
 
                         Text(
                             text = "Difficulty: ${workout.difficulty}",
-                            fontSize = 16.sp,
-                            color = Color.Red
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = getDifficultyColor(workout.difficulty)
                         )
 
                         Spacer(modifier = Modifier.height(4.dp))
 
                         Text(
                             text = "Muscle Group: ${workout.muscle}",
-                            fontSize = 16.sp
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
                         )
 
                         Spacer(modifier = Modifier.height(4.dp))
 
                         Text(
                             text = "Equipment: ${workout.equipment}",
-                            fontSize = 16.sp
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
                         )
 
                         Spacer(modifier = Modifier.height(4.dp))
 
                         Text(
                             text = "Instructions: ${workout.instructions}",
-                            fontSize = 16.sp
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
                         )
 
                         Spacer(modifier = Modifier.height(4.dp))
@@ -338,8 +371,11 @@ fun WorkoutScreen() {
                                     workoutToDeleteIndex = workoutList.indexOf(workout)
                                     showDialog = true
                                 },
-                            color = MaterialTheme.colorScheme.error
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 20.sp,
                         )
+
+                        Spacer(modifier = Modifier.height(4.dp))
 
                         Button(onClick = { showLogWorkoutDialog = true }) {
                             Text("Log Workout")
@@ -434,7 +470,7 @@ fun WorkoutScreen() {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(24.dp),
+                        .padding(22.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
@@ -482,50 +518,63 @@ fun WorkoutScreen() {
                                     selectedWorkout = workout
                                     showFullScreenDialog = true
                                 }
-                                .padding(8.dp)
                                 .widthIn(min = 350.dp, max = 350.dp)
                         ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp)
-                            ) {
-                                val iconResId = when (workout.type) {
-                                    "cardio" -> icon_cardio
-                                    "olympic_weightlifting" -> icon_olympic_weighlifting
-                                    "plyometrics" -> icon_plyometrics
-                                    "powerlifting" -> icon_powerlifting
-                                    "strength" -> icon_strength
-                                    "stretching" -> icon_stretching
-                                    "strongman" -> icon_strongman
-                                    else -> icon_strongman
+                            Column(modifier = Modifier.padding(8.dp)){
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ){
+                                    Column(modifier = Modifier.width(60.dp)) {
+                                        val iconResId = when (workout.type) {
+                                            "cardio" -> icon_cardio
+                                            "olympic_weightlifting" -> icon_olympic_weighlifting
+                                            "plyometrics" -> icon_plyometrics
+                                            "powerlifting" -> icon_powerlifting
+                                            "strength" -> icon_strength
+                                            "stretching" -> icon_stretching
+                                            "strongman" -> icon_strongman
+                                            else -> icon_strongman
+                                        }
+                                        Image(
+                                            painter = painterResource(id = iconResId),
+                                            contentDescription = "Workout Icon",
+                                            modifier = Modifier
+                                                .size(60.dp)
+                                                .align(Alignment.CenterHorizontally)
+                                        )
+                                    }
+                                    Column(modifier = Modifier.width(245.dp)) {
+
+                                        Text(
+                                            text = workout.name,
+                                            fontSize = 24.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.Black,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+
+                                        Spacer(modifier = Modifier.height(6.dp))
+
+                                        Text(
+                                            text = "Type: ${workout.type}",
+                                            fontSize = 18.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = getTypeColor(workout.type)
+                                        )
+
+                                        Spacer(modifier = Modifier.height(4.dp))
+
+                                        Text(
+                                            text = "Difficulty: ${workout.difficulty}",
+                                            fontSize = 18.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = getDifficultyColor(workout.difficulty)
+                                        )
+                                    }
                                 }
-                                Image(
-                                    painter = painterResource(id = iconResId),
-                                    contentDescription = "Workout Icon",
-                                    modifier = Modifier.size(30.dp)
-                                )
-
-                                Text(
-                                    text = workout.name,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.Black
-                                )
-
-                                Spacer(modifier = Modifier.height(6.dp))
-
-                                Text(
-                                    text = "Type: ${workout.type}",
-                                    fontSize = 16.sp,
-                                    color = Color.Blue
-                                )
-
-                                Spacer(modifier = Modifier.height(4.dp))
-
-                                Text(
-                                    text = "Difficulty: ${workout.difficulty}",
-                                    fontSize = 16.sp,
-                                    color = Color.Red
-                                )
                             }
                         }
                     }

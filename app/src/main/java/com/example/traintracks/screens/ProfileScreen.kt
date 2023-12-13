@@ -91,6 +91,15 @@ fun ProfileScreen() {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Text(
+            text = "${currentUser?.email ?: "User"}",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        Spacer(Modifier.height(12.dp))
+
         // Display the total points and level
         Text(
             text = "Total Points: ${totalPoints.value}",
@@ -112,7 +121,8 @@ fun ProfileScreen() {
 
         Text(
             text = levelMessage.value,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.secondary
         )
 

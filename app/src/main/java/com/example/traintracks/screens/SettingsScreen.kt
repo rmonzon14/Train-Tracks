@@ -1,5 +1,6 @@
 package com.example.traintracks.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -45,6 +47,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.MutableState
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import com.example.traintracks.R
 import com.google.android.gms.tasks.Tasks
@@ -138,7 +141,7 @@ fun SettingsScreen() {
                         }
                     }
                     LazyColumn(
-                        modifier = Modifier.padding(top = 20.dp),
+                        modifier = Modifier.padding(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
@@ -422,6 +425,30 @@ fun WorkoutLogCard(
         }
     }
 
+    fun getDifficultyColor(difficulty: String): Color {
+        val darkGreen = Color(0xFF006400)
+        val darkOrange = Color(0xFFCC8400)
+        val darkRed = Color(0xFFCD5C5C)
+        return when (difficulty) {
+            "beginner" -> darkGreen
+            "intermediate" -> darkOrange
+            "expert" -> darkRed
+            else -> Color.Gray
+        }
+    }
+
+    fun getTypeColor(type: String): Color {
+        return when (type) {
+            "cardio" -> Color(0xFF800000) // Silver
+            "olympic_weightlifting" -> Color(0xFFFF8F00) // Amber
+            "plyometrics" -> Color(0xFFF124AA) // Magenta
+            "powerlifting" -> Color(0xFF1A237E) // Deep Blue
+            "strength" -> Color(0xFF673AB7) // Deep Purple
+            "stretching" -> Color(0xFF008B8B) // Teal
+            "strongman" -> Color(0xFF6D4C41) // Brown
+            else -> Color.Gray
+        }
+    }
 
     if (showAddNoteDialog) {
         AlertDialog(
@@ -611,7 +638,7 @@ fun WorkoutLogCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp),
+            .padding(start = 8.dp, end = 8.dp),
     ) {
         Column(
             modifier = Modifier
@@ -622,24 +649,51 @@ fun WorkoutLogCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
+                Column(modifier = Modifier.widthIn(min = 50.dp, max = 50.dp)){
+                    val iconResId = when (log.type) {
+                        "cardio" -> R.drawable.icon_cardio
+                        "olympic_weightlifting" -> R.drawable.icon_olympic_weighlifting
+                        "plyometrics" -> R.drawable.icon_plyometrics
+                        "powerlifting" -> R.drawable.icon_powerlifting
+                        "strength" -> R.drawable.icon_strength
+                        "stretching" -> R.drawable.icon_stretching
+                        "strongman" -> R.drawable.icon_strongman
+                        else -> R.drawable.icon_strongman
+                    }
+                    Image(
+                        painter = painterResource(id = iconResId),
+                        contentDescription = "Workout Icon",
+                        modifier = Modifier.size(50.dp)
+                    )
+                }
+                Column(modifier = Modifier.widthIn(min = 225.dp, max = 225.dp)){
                     // Workout log details
                     Text(
                         text = log.date,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
 
                     Text(
                         text = log.name,
                         style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.primary
+                        fontWeight = FontWeight.Bold,
+                        color = getTypeColor(log.type)
+                    )
+
+                    Text(
+                        text = log.difficulty,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = getDifficultyColor(log.difficulty)
                     )
 
                     if (log.sets.isNotBlank()) {
                         Text(
                             text = "Sets: ${log.sets}",
                             style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -648,6 +702,7 @@ fun WorkoutLogCard(
                         Text(
                             text = "Reps: ${log.reps}",
                             style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -656,6 +711,7 @@ fun WorkoutLogCard(
                         Text(
                             text = "Duration: ${log.duration}",
                             style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -665,6 +721,7 @@ fun WorkoutLogCard(
                             Text(
                                 text = "Distance: $distance",
                                 style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                         }
@@ -673,7 +730,8 @@ fun WorkoutLogCard(
                     if (hasNote) {
                         Text(
                             text = noteText,
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
                         )
                     }
                 }
