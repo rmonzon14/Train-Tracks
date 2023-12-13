@@ -137,7 +137,7 @@ fun ProfileScreen() {
             shape = RoundedCornerShape(5.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White
+                contentColor = MaterialTheme.colorScheme.secondary
             )
         ) {
             Icon(Icons.Default.Person, contentDescription = "Logout Icon")

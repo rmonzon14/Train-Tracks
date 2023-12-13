@@ -61,12 +61,13 @@ import com.example.traintracks.R
 import com.example.traintracks.SearchApiService
 import com.example.traintracks.ui.theme.TrainTracksTheme
 import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
-import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
@@ -74,6 +75,9 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 class SearchScreen : ComponentActivity() {
+
+    private lateinit var auth : FirebaseAuth
+    private lateinit var db  : DatabaseReference
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -176,14 +180,14 @@ fun Search(
                 .fillMaxWidth()
                 .padding(8.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color.LightGray,
-                contentColor = MaterialTheme.colorScheme.primary
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.secondary
             )
         ) {
             Text(
                 text = "Search",
                 fontSize = 20.sp,
-                color = Color.Black
+                color = Color.White
             )
         }
     }
@@ -243,7 +247,6 @@ fun WorkoutTypeField(
             "strength",
             "stretching",
             "strongman")
-
     var expanded by remember { mutableStateOf(false) }
     var selectedText by remember { mutableStateOf(value) }
 
@@ -511,7 +514,6 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
                 "strongman" -> R.drawable.icon_strongman
                 else -> R.drawable.icon_strongman
             }
-
             Image(
                 painter = painterResource(id = iconResId),
                 contentDescription = "Workout Icon",
@@ -529,7 +531,7 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
             Text(
                 text = result.type,
                 fontSize = 18.sp,
-                color = getTypeColor(result.type)
+                color = Color.Blue
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -537,7 +539,7 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
             Text(
                 text = "Difficulty: ${result.difficulty}",
                 fontSize = 18.sp,
-                color = getDifficultyColor(result.difficulty)
+                color = Color.Red
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -579,8 +581,8 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
                         .fillMaxWidth()
                         .padding(8.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.LightGray,
-                        contentColor = MaterialTheme.colorScheme.primary
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.secondary
                     )
                 ) {
                     Text(
@@ -630,36 +632,12 @@ fun com.example.traintracks.SearchResult.toMap(): Map<String, Any?> {
     )
 }
 
-fun getDifficultyColor(difficulty: String): Color {
-    val darkGreen = Color(0xFF006400)
-    val darkOrange = Color(0xFFCC8400)
-    val darkRed = Color(0xFFCD5C5C)
-    return when (difficulty) {
-        "beginner" -> darkGreen
-        "intermediate" -> darkOrange
-        "expert" -> darkRed
-        else -> Color.Gray
-    }
-}
-
-fun getTypeColor(type: String): Color {
-    return when (type) {
-        "cardio" -> Color(0xFF800000) // Silver
-        "olympic_weightlifting" -> Color(0xFFFF8F00) // Amber
-        "plyometrics" -> Color(0xFFF124AA) // Magenta
-        "powerlifting" -> Color(0xFF1A237E) // Deep Blue
-        "strength" -> Color(0xFF673AB7) // Deep Purple
-        "stretching" -> Color(0xFF008B8B) // Teal
-        "strongman" -> Color(0xFF6D4C41) // Brown
-        else -> Color.Gray
-    }
-}
-
-@OptIn(DelicateCoroutinesApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
 fun SearchScreenContent() {
     var searchClicked by remember { mutableStateOf(false) }
+    val currentContext = LocalContext.current
     var searchResults by remember { mutableStateOf<List<com.example.traintracks.SearchResult>>(emptyList()) }
 
     if (searchClicked) {

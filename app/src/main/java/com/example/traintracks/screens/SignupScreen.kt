@@ -184,8 +184,8 @@ fun SignUpUsernameSection(
                 tint = Color.White
             )
         },
-        placeholder = { Text("Enter your username", color = Color.White) },
-        label = { Text("Username", color = Color.White) },
+        placeholder = { Text("Enter your email", color = Color.White) },
+        label = { Text("Email", color = Color.White) },
         visualTransformation = VisualTransformation.None,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
         keyboardActions = KeyboardActions(

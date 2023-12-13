@@ -507,7 +507,7 @@ fun WorkoutScreen() {
                             modifier = Modifier.padding(bottom = 16.dp),
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.secondary
                         )
                     }
 

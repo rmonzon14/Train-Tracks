@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.NavHost
 import androidx.navigation.compose.rememberNavController
@@ -60,9 +61,10 @@ fun HomeScreen(navController: NavController) {
         ) {
             // Title
             Text(
-                text = "Home Screen",
+                text = "Welcome!",
                 style = MaterialTheme.typography.headlineSmall,
                 color = Color.White,
+                fontSize = 50.sp,
                 modifier = Modifier
                     .padding(bottom = 16.dp)
                     .fillMaxWidth()
@@ -70,7 +72,7 @@ fun HomeScreen(navController: NavController) {
 
             // Intro Text
             Text(
-                text = "Welcome to TrainTracks! Discover and track your workouts.",
+                text = "Discover and track your workouts.",
                 style = MaterialTheme.typography.headlineMedium,
                 color = Color.White,
                 modifier = Modifier.fillMaxWidth()
@@ -88,8 +90,8 @@ fun HomeScreen(navController: NavController) {
                     .fillMaxWidth()
                     .padding(8.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.LightGray,
-                    contentColor = MaterialTheme.colorScheme.primary
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.secondary
                 )
             ) {
                 Text(
