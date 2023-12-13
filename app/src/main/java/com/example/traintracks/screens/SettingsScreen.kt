@@ -1,5 +1,5 @@
-import android.os.Build
-import androidx.annotation.RequiresApi
+package com.example.traintracks.screens
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardElevation
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -34,11 +33,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.navigation.NavController
 import com.example.traintracks.WorkoutLog
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
@@ -49,44 +45,21 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.MutableState
+import com.google.android.gms.tasks.Tasks
 import java.text.SimpleDateFormat
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.format.DateTimeParseException
 import java.util.Calendar
+import java.util.Locale
 
 @Composable
-fun SettingsScreen(navController: NavController) {
+fun SettingsScreen() {
     val auth = FirebaseAuth.getInstance()
     val userId = auth.currentUser?.uid ?: return
     val db = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
 
     var workoutLogs by remember { mutableStateOf<List<WorkoutLog>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-    var errorMessage = remember { mutableStateOf<String?>(null) }
-    var successMessage = remember { mutableStateOf<String?>(null) }
-
-    // Function to handle errors from WorkoutLogCard
-    fun handleWorkoutLogError(message: String) {
-        errorMessage.value = message
-    }
-
-    fun refreshWorkoutLogs() {
-        isLoading = true
-        db.addValueEventListener(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                workoutLogs = snapshot.children.mapNotNull { it.getValue(WorkoutLog::class.java) }
-                    .asReversed()
-                    .sortedByDescending { it.date }
-                isLoading = false
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                isLoading = false
-                errorMessage.value = error.message
-            }
-        })
-    }
+    val errorMessage = remember { mutableStateOf<String?>(null) }
+    val successMessage = remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         db.addValueEventListener(object : ValueEventListener {
@@ -99,95 +72,72 @@ fun SettingsScreen(navController: NavController) {
 
             override fun onCancelled(error: DatabaseError) {
                 isLoading = false
-                // Handle the error
+                // Display Error Message
                 errorMessage.value = error.message
             }
         })
     }
 
-    val onDeleteSuccess = {
-        // Refresh the workout logs list
-        db.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                workoutLogs = snapshot.children.mapNotNull { it.getValue(WorkoutLog::class.java) }
-                    .asReversed()
-                    .sortedByDescending { it.date }
-                isLoading = false
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                isLoading = false
-                errorMessage.value = "Failed to refresh data: ${error.message}"
-            }
-        })
-    }
-
-    val onDeleteFailure = { error: String ->
-        errorMessage.value = error
-    }
-
-    Box{
-        Surface(
-            modifier = Modifier
-                .padding(24.dp, bottom = 80.dp)
-                .fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
-        ) {
-            Column {
-                // Snackbar for displaying errors
-                if (errorMessage.value != null) {
-                    Snackbar(
-                        action = {
-                            TextButton(onClick = { errorMessage.value = null }) {
-                                Text("OK")
-                            }
-                        },
-                        modifier = Modifier.padding(8.dp)
-                    ) {
-                        Text(errorMessage.value!!)
+    Box(modifier = Modifier.fillMaxSize()) {
+        if(isLoading) {
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+        }
+        else{
+            Surface(
+                modifier = Modifier
+                    .padding(bottom = 80.dp)
+                    .fillMaxSize(),
+                color = MaterialTheme.colorScheme.background
+            ) {
+                Column {
+                    // Snackbar for displaying errors
+                    if (errorMessage.value != null) {
+                        Snackbar(
+                            action = {
+                                TextButton(onClick = { errorMessage.value = null }) {
+                                    Text("OK")
+                                }
+                            },
+                            modifier = Modifier.padding(8.dp)
+                        ) {
+                            Text(errorMessage.value!!)
+                        }
                     }
-                }
-                // Snackbar for displaying success message
-                if (successMessage.value != null) {
-                    Snackbar(
-                        action = {
-                            TextButton(onClick = { successMessage.value = null }) {
-                                Text("OK")
-                            }
-                        },
-                        modifier = Modifier.padding(8.dp)
-                    ) {
-                        Text(successMessage.value!!)
+                    // Snackbar for displaying success message
+                    if (successMessage.value != null) {
+                        Snackbar(
+                            action = {
+                                TextButton(onClick = { successMessage.value = null }) {
+                                    Text("OK")
+                                }
+                            },
+                            modifier = Modifier.padding(8.dp)
+                        ) {
+                            Text(successMessage.value!!)
+                        }
                     }
-                }
-                if (isLoading) {
-                    CircularProgressIndicator()
-                } else {
                     LazyColumn(
                         modifier = Modifier.padding(top = 20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         item{ Text(
-                                text = "Logged Workouts",
-                                modifier = Modifier.padding(bottom = 16.dp, top = 16.dp),
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
+                            text = "Logged Workouts",
+                            modifier = Modifier.padding(bottom = 16.dp, top = 16.dp),
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                         }
                         items(workoutLogs) { log ->
                             WorkoutLogCard(
                                 log = log,
-                                onDeleteSuccess = { refreshWorkoutLogs() },
-                                onDeleteFailure = { errorMessage.value = it },
-                                onEditSuccess = { refreshWorkoutLogs() },
-                                errorMessageState = errorMessage,
                                 successMessageState = successMessage,
-                                onError = { message -> handleWorkoutLogError(message) }
+                                errorMessageState = errorMessage
                             )
                         }
                     }
+
                 }
             }
         }
@@ -197,7 +147,11 @@ fun SettingsScreen(navController: NavController) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WorkoutLogCard(log: WorkoutLog, successMessageState: MutableState<String?>, onDeleteSuccess: () -> Unit, onDeleteFailure: (String) -> Unit, onError: (String) -> Unit, onEditSuccess: () -> Unit, errorMessageState: MutableState<String?>) {
+fun WorkoutLogCard(
+    log: WorkoutLog,
+    successMessageState: MutableState<String?>,
+    errorMessageState: MutableState<String?>
+) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var editedName by remember { mutableStateOf(log.name) }
@@ -224,11 +178,19 @@ fun WorkoutLogCard(log: WorkoutLog, successMessageState: MutableState<String?>, 
 
     fun deleteWorkoutLog(logId: String, onSuccess: () -> Unit, onFailure: (String) -> Unit) {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
-        val db = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
+        val logsDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
+        val pointsDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/points")
 
-        db.child(logId).removeValue().addOnSuccessListener {
+        val task1 = logsDbRef.child(logId).removeValue()
+        val task2 = pointsDbRef.child(logId).removeValue()
+
+        Tasks.whenAll(task1, task2).addOnSuccessListener {
+            successMessageState.value = "Workout log successfully deleted."
+            errorMessageState.value = null
             onSuccess()
         }.addOnFailureListener {
+            errorMessageState.value = it.message ?: "An error occurred during deletion"
+            successMessageState.value = null
             onFailure(it.message ?: "An unknown error occurred")
         }
     }
@@ -279,12 +241,12 @@ fun WorkoutLogCard(log: WorkoutLog, successMessageState: MutableState<String?>, 
         }
 
         // Parse the date and check if it's in the future
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd")
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.CANADA)
         dateFormat.isLenient = false
         return try {
             val parsedDate = dateFormat.parse(dateStr)
             val today = Calendar.getInstance().time
-            if (parsedDate.after(today)) {
+            if (parsedDate!!.after(today)) {
                 Pair(false, "You cannot log workouts in the future unless you are Marty McFly")
             } else {
                 Pair(true, "")
@@ -309,7 +271,7 @@ fun WorkoutLogCard(log: WorkoutLog, successMessageState: MutableState<String?>, 
     }
 
     fun isValidDistance(originalDistance: String?, editedDistance: String): Pair<Boolean, String> {
-        if (originalDistance != null && originalDistance.isNotBlank() && editedDistance.isBlank()) {
+        if (!originalDistance.isNullOrBlank() && editedDistance.isBlank()) {
             return Pair(false, "Distance cannot be blank")
         }
         return Pair(true, "")
@@ -380,7 +342,6 @@ fun WorkoutLogCard(log: WorkoutLog, successMessageState: MutableState<String?>, 
 
             updateWorkoutLog(log, onSuccess = {
                 showEditDialog = false
-                onEditSuccess()
             }, onFailure = { error ->
                 errorMessageState.value = error
                 successMessageState.value = null
@@ -397,8 +358,12 @@ fun WorkoutLogCard(log: WorkoutLog, successMessageState: MutableState<String?>, 
             text = { Text("Are you sure you want to delete this workout log?") },
             confirmButton = {
                 Button(onClick = {
-                    deleteWorkoutLog(log.id, onDeleteSuccess, onDeleteFailure)
-                    showDeleteDialog = false
+                    deleteWorkoutLog(log.id, onSuccess = {
+                        showDeleteDialog = false
+                    }, onFailure = {
+                        showDeleteDialog = false
+                        errorMessageState.value = it
+                    })
                 }) {
                     Text("Confirm")
                 }
@@ -417,7 +382,7 @@ fun WorkoutLogCard(log: WorkoutLog, successMessageState: MutableState<String?>, 
         // Dialog for editing
         AlertDialog(
             onDismissRequest = { showEditDialog = false },
-            title = { Text("${log.name}") },
+            title = { Text(log.name) },
             text = {
                 Column {
                     // Display date of logged workout
@@ -503,13 +468,13 @@ fun WorkoutLogCard(log: WorkoutLog, successMessageState: MutableState<String?>, 
                 Column {
                     // Workout log details
                     Text(
-                        text = "${log.date}",
+                        text = log.date,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
 
                     Text(
-                        text = "${log.name}",
+                        text = log.name,
                         style = MaterialTheme.typography.headlineSmall,
                         color = MaterialTheme.colorScheme.primary
                     )

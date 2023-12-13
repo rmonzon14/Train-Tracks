@@ -1,6 +1,5 @@
 package com.example.traintracks.screens
 
-import SettingsScreen
 import android.annotation.SuppressLint
 import android.os.Build
 import android.os.Bundle
@@ -32,7 +31,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.traintracks.WorkoutScreen
 import com.google.firebase.FirebaseApp
 
 data class BottomNavigationItem(
@@ -47,7 +45,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         FirebaseApp.initializeApp(this)
         setContent {
-            bottomNavBar()
+            BottomNavBar()
         }
     }
 }
@@ -57,7 +55,7 @@ class MainActivity : ComponentActivity() {
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun bottomNavBar() {
+fun BottomNavBar() {
     val items = listOf(
         BottomNavigationItem(
             title = "Home",
@@ -88,8 +86,7 @@ fun bottomNavBar() {
 
     Scaffold(
         bottomBar = {
-            NavigationBar (
-            ) {
+            NavigationBar {
                 items.forEachIndexed { index, item ->
                     NavigationBarItem(
                         selected = selectedItemIndex == index,
@@ -121,13 +118,13 @@ fun bottomNavBar() {
             HomeScreen(navController)
         }
         composable("Workout") {
-            WorkoutScreen(navController)
+            WorkoutScreen()
         }
         composable("Profile") {
-            ProfileScreen(navController)
+            ProfileScreen()
         }
         composable("Settings") {
-            SettingsScreen(navController)
+            SettingsScreen()
         }
     }
 }

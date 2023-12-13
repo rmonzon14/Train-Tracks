@@ -1,4 +1,4 @@
-package com.example.traintracks
+package com.example.traintracks.screens
 
 import android.content.Intent
 import android.os.Build
@@ -23,9 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.navigation.NavController
 import com.google.firebase.Firebase
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
@@ -38,18 +36,16 @@ import com.example.traintracks.WorkoutLog
 import com.google.firebase.auth.auth
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
-import com.example.traintracks.screens.SearchScreen
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
-private lateinit var auth: FirebaseAuth
 private lateinit var db: DatabaseReference
 
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun WorkoutScreen(navController: NavController) {
+fun WorkoutScreen() {
     val auth = Firebase.auth
     val currentUser = auth.currentUser
     val currentContext = LocalContext.current
@@ -116,16 +112,16 @@ fun WorkoutScreen(navController: NavController) {
             // Additional check for future date
             val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
             dateFormat.isLenient = false
-            try {
+            errorMessage = try {
                 val parsedDate = dateFormat.parse(workoutDate)
                 val today = Calendar.getInstance().time
-                if (parsedDate.after(today)) {
-                    errorMessage = "You cannot log workouts in the future unless you are Marty McFly"
+                if (parsedDate!!.after(today)) {
+                    "You cannot log workouts in the future unless you are Marty McFly"
                 } else {
                     return true
                 }
             } catch (e: Exception) {
-                errorMessage = "Enter a valid date in format YYYY-MM-DD"
+                "Enter a valid date in format YYYY-MM-DD"
             }
         }
         showErrorSnackbar = true
@@ -136,7 +132,9 @@ fun WorkoutScreen(navController: NavController) {
     fun saveWorkoutLog(workout: Workout) {
         val userId = Firebase.auth.currentUser?.uid ?: return
         val logRef = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
+        val pointsRef = FirebaseDatabase.getInstance().getReference("users/$userId/points")
         val logId = logRef.push().key ?: return
+
         val workoutLog = WorkoutLog(
             id = logId,
             name = workout.name,
@@ -146,8 +144,20 @@ fun WorkoutScreen(navController: NavController) {
             reps = workoutReps,
             date = workoutDate
         )
+
         if (!isFormValid(workout)) return
+
         logRef.child(logId).setValue(workoutLog).addOnSuccessListener {
+            // Save points data after successfully saving workout log
+            val pointsData = mapOf(
+                "id" to logId,
+                "timestamp" to System.currentTimeMillis(),
+                "name" to workout.name,
+                "points" to 25 // Each logged workout gives 25 points
+            )
+            pointsRef.child(logId).setValue(pointsData)
+
+            // Reset UI state and show confirmation
             showLogWorkoutDialog = false
             showConfirmationMessage = true
             showErrorSnackbar = false

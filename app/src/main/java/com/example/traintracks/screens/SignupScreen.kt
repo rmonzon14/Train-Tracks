@@ -56,15 +56,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.traintracks.R
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 
 class SignupScreen : ComponentActivity() {
 
-    private lateinit var auth: FirebaseAuth
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -80,7 +77,6 @@ class SignupScreen : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignUp(
     onSignUpClicked: (String, String, String) -> Unit
@@ -205,7 +201,7 @@ fun SignUpPasswordSection(
     onChange: (String) -> Unit,
     submit: () -> Unit,
 ) {
-    var isPasswordVisible by remember { mutableStateOf(false) }
+    val isPasswordVisible by remember { mutableStateOf(false) }
 
     TextField(
         value = value,
@@ -245,7 +241,7 @@ fun SignUpConfirmPasswordSection(
     onChange: (String) -> Unit,
     submit: () -> Unit,
 ) {
-    var isPasswordVisible by remember { mutableStateOf(false) }
+    val isPasswordVisible by remember { mutableStateOf(false) }
 
     TextField(
         value = value,
@@ -318,7 +314,7 @@ fun DisplaySignupScreen() {
 
     val currentContext = LocalContext.current
 
-    var auth = Firebase.auth
+    val auth = Firebase.auth
 
     if (isSignedUp) {
         val intent = Intent(currentContext, LoginScreen::class.java)
@@ -340,7 +336,7 @@ fun DisplaySignupScreen() {
 
                 else -> {
                     auth.createUserWithEmailAndPassword(email, password)
-                        .addOnCompleteListener() { task ->
+                        .addOnCompleteListener { task ->
                             if (task.isSuccessful) {
                                 isSignedUp = true
                             } else {
