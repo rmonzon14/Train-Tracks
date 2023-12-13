@@ -307,7 +307,7 @@ fun WorkoutScreen() {
                         Image(
                             painter = painterResource(id = iconResId),
                             contentDescription = "Workout Icon",
-                            modifier = Modifier.size(30.dp)
+                            modifier = Modifier.size(50.dp)
                         )
 
                         Text(
@@ -372,6 +372,8 @@ fun WorkoutScreen() {
                             color = MaterialTheme.colorScheme.error,
                             fontSize = 20.sp,
                         )
+
+                        Spacer(modifier = Modifier.height(4.dp))
 
                         Button(onClick = { showLogWorkoutDialog = true }) {
                             Text("Log Workout")
