@@ -36,6 +36,7 @@ import com.example.traintracks.WorkoutLog
 import com.google.firebase.auth.auth
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.text.style.TextOverflow
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -100,13 +101,13 @@ fun WorkoutScreen() {
 
     fun getTypeColor(type: String): Color {
         return when (type) {
-            "cardio" -> Color(0xFF800000) // Silver
+            "cardio" -> Color(0xFFC91212) // Silver
             "olympic_weightlifting" -> Color(0xFFFF8F00) // Amber
             "plyometrics" -> Color(0xFFF124AA) // Magenta
-            "powerlifting" -> Color(0xFF1A237E) // Deep Blue
+            "powerlifting" -> Color(0xFF1D28A2) // Deep Blue
             "strength" -> Color(0xFF9C27B0) // Deep Purple
             "stretching" -> Color(0xFF008B8B) // Teal
-            "strongman" -> Color(0xFF6D4C41) // Brown
+            "strongman" -> Color(0xFF9B6857) // Brown
             else -> Color.Gray
         }
     }
@@ -308,6 +309,7 @@ fun WorkoutScreen() {
                         }
                         Image(
                             painter = painterResource(id = iconResId),
+                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.secondary),
                             contentDescription = "Workout Icon",
                             modifier = Modifier.size(50.dp)
                         )
@@ -377,8 +379,12 @@ fun WorkoutScreen() {
 
                         Spacer(modifier = Modifier.height(4.dp))
 
-                        Button(onClick = { showLogWorkoutDialog = true }) {
-                            Text("Log Workout")
+                        Button(
+                            onClick = { showLogWorkoutDialog = true },
+                        ) {
+                            Text(
+                                "Log Workout",
+                                color = MaterialTheme.colorScheme.secondary)
                         }
 
                         if (showLogWorkoutDialog) {
@@ -540,6 +546,7 @@ fun WorkoutScreen() {
                                         Image(
                                             painter = painterResource(id = iconResId),
                                             contentDescription = "Workout Icon",
+                                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.secondary),
                                             modifier = Modifier
                                                 .size(60.dp)
                                                 .align(Alignment.CenterHorizontally)

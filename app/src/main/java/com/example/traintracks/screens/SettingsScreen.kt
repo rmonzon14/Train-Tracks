@@ -48,6 +48,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import com.example.traintracks.R
 import com.google.android.gms.tasks.Tasks
@@ -439,13 +440,13 @@ fun WorkoutLogCard(
 
     fun getTypeColor(type: String): Color {
         return when (type) {
-            "cardio" -> Color(0xFF800000) // Silver
+            "cardio" -> Color(0xFFC91212) // Silver
             "olympic_weightlifting" -> Color(0xFFFF8F00) // Amber
             "plyometrics" -> Color(0xFFF124AA) // Magenta
-            "powerlifting" -> Color(0xFF1A237E) // Deep Blue
+            "powerlifting" -> Color(0xFF1D28A2) // Deep Blue
             "strength" -> Color(0xFF9C27B0) // Deep Purple
             "stretching" -> Color(0xFF008B8B) // Teal
-            "strongman" -> Color(0xFF6D4C41) // Brown
+            "strongman" -> Color(0xFF9B6857) // Brown
             else -> Color.Gray
         }
     }
@@ -693,6 +694,7 @@ fun WorkoutLogCard(
                     Image(
                         painter = painterResource(id = iconResId),
                         contentDescription = "Workout Icon",
+                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.secondary),
                         modifier = Modifier.size(50.dp)
                     )
                 }
