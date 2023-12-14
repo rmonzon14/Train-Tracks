@@ -443,7 +443,7 @@ fun WorkoutLogCard(
             "olympic_weightlifting" -> Color(0xFFFF8F00) // Amber
             "plyometrics" -> Color(0xFFF124AA) // Magenta
             "powerlifting" -> Color(0xFF1A237E) // Deep Blue
-            "strength" -> Color(0xFF673AB7) // Deep Purple
+            "strength" -> Color(0xFF9C27B0) // Deep Purple
             "stretching" -> Color(0xFF008B8B) // Teal
             "strongman" -> Color(0xFF6D4C41) // Brown
             else -> Color.Gray

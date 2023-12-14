@@ -10,14 +10,14 @@ sealed class ThemeColors(
     object Night : ThemeColors(
         background = Color(0xFF000000),
         surface = Color(0xFF000000),
-        primary = Color(0xFF484848),
+        primary = Color(0xFF41593A),
         text = Color(0xffffffff)
     )
     object Day : ThemeColors(
-        background = Color(0xFF000000),
-        surface = Color(0xFF000000),
+        background = Color(0xffffffff),
+        surface = Color(0xffffffff),
         primary = Color(0xFF41593A),
-        text = Color(0xffffffff)
+        text = Color(0xFF000000)
     )
 }
 //Test
