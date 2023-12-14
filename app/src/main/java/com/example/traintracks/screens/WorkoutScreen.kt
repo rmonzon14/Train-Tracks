@@ -230,12 +230,18 @@ fun WorkoutScreen() {
                     deleteWorkout(workoutToDeleteIndex)
                     showDialog = false
                 }) {
-                    Text("Confirm")
+                    Text(
+                        "Confirm",
+                        color = MaterialTheme.colorScheme.secondary
+                    )
                 }
             },
             dismissButton = {
                 Button(onClick = { showDialog = false }) {
-                    Text("Cancel")
+                    Text(
+                        "Cancel",
+                        color = MaterialTheme.colorScheme.secondary
+                    )
                 }
             }
         )
@@ -451,10 +457,16 @@ fun WorkoutScreen() {
                                         )
                                         Row {
                                             Button(onClick = { saveWorkoutLog(workout) }) {
-                                                Text("Save")
+                                                Text(
+                                                    "Save",
+                                                    color = MaterialTheme.colorScheme.secondary
+                                                )
                                             }
                                             Button(onClick = { showLogWorkoutDialog = false }) {
-                                                Text("Cancel")
+                                                Text(
+                                                    "Cancel",
+                                                    color = MaterialTheme.colorScheme.secondary
+                                                )
                                             }
                                         }
                                     }
