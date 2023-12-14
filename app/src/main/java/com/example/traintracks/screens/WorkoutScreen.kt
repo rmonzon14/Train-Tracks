@@ -87,6 +87,7 @@ fun WorkoutScreen() {
         }
     })
 
+    @Composable
     fun getDifficultyColor(difficulty: String): Color {
         val darkGreen = Color(0xFF006400)
         val darkOrange = Color(0xFFCC8400)
@@ -95,20 +96,21 @@ fun WorkoutScreen() {
             "beginner" -> darkGreen
             "intermediate" -> darkOrange
             "expert" -> darkRed
-            else -> Color.Gray
+            else -> MaterialTheme.colorScheme.secondary
         }
     }
 
+    @Composable
     fun getTypeColor(type: String): Color {
         return when (type) {
-            "cardio" -> Color(0xFFC91212) // Silver
-            "olympic_weightlifting" -> Color(0xFFFF8F00) // Amber
-            "plyometrics" -> Color(0xFFF124AA) // Magenta
-            "powerlifting" -> Color(0xFF1D28A2) // Deep Blue
-            "strength" -> Color(0xFF9C27B0) // Deep Purple
-            "stretching" -> Color(0xFF008B8B) // Teal
-            "strongman" -> Color(0xFF9B6857) // Brown
-            else -> Color.Gray
+            "cardio" -> Color(0xFFC91212)
+            "olympic_weightlifting" -> Color(0xFFFF8F00)
+            "plyometrics" -> Color(0xFFF124AA)
+            "powerlifting" -> Color(0xFF1D28A2)
+            "strength" -> Color(0xFF9C27B0)
+            "stretching" -> Color(0xFF008B8B)
+            "strongman" -> Color(0xFF9B6857)
+            else -> MaterialTheme.colorScheme.secondary
         }
     }
 
