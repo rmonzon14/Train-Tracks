@@ -92,7 +92,7 @@ fun ProfileScreen() {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "${currentUser?.email ?: "User"}",
+            text = currentUser?.email ?: "User",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.secondary
