@@ -10,12 +10,21 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -44,30 +53,417 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.sp
 import com.example.traintracks.R
 import com.google.android.gms.tasks.Tasks
+import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
+import java.util.UUID
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen() {
     val auth = FirebaseAuth.getInstance()
     val userId = auth.currentUser?.uid ?: return
     val logsDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
+    val logId = logsDbRef.push().key ?: return
     val notesDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/notes")
-
+    var newWorkoutName by remember { mutableStateOf("") }
+    var newWorkoutDate by remember { mutableStateOf("") }
+    var newWorkoutType by remember { mutableStateOf("") }
+    var newWorkoutDuration by remember { mutableStateOf("") }
+    var newWorkoutDistance by remember { mutableStateOf("") }
+    var newWorkoutSets by remember { mutableStateOf("") }
+    var newWorkoutReps by remember { mutableStateOf("") }
+    var showNoteField by remember { mutableStateOf(false) }
+    var noteText by remember { mutableStateOf("") }
+    var dropDownText by remember { mutableStateOf("") }
+    var expanded by remember { mutableStateOf(false) }
     var workoutLogs by remember { mutableStateOf<List<WorkoutLog>>(emptyList()) }
     var notesData by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var isLoading by remember { mutableStateOf(true) }
     val errorMessage = remember { mutableStateOf<String?>(null) }
     val successMessage = remember { mutableStateOf<String?>(null) }
+    var selectedWorkouts by remember { mutableStateOf<Set<String>>(setOf()) }
+    var checkedStates by remember { mutableStateOf<Map<String, Boolean>>(emptyMap()) }
+    val isAnyWorkoutSelected = selectedWorkouts.isNotEmpty()
+    var showAddWorkoutDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmationDialog by remember { mutableStateOf(false) }
+    val updateWorkoutLogsList: (List<WorkoutLog>) -> Unit = { newList ->
+        workoutLogs = newList
+    }
+    val updateSelectedWorkouts: (Set<String>) -> Unit = { newSet ->
+        selectedWorkouts = newSet
+    }
+
+    @Composable
+    fun CustomAppBar(
+        onAddClick: () -> Unit,
+        onDeleteClick: () -> Unit,
+        isAnyWorkoutSelected: Boolean
+    ) {
+        TopAppBar(
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+
+                    Text(
+                        text = "Workout Session Log",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+
+                }
+            },
+            navigationIcon = {
+                if (isAnyWorkoutSelected) {
+                    IconButton(
+                        onClick = onDeleteClick
+                    ) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = "Delete Selected Workouts",
+                            modifier = Modifier.size(70.dp)
+                        )
+                    }
+                }
+            },
+            actions = {
+                // Plus icon - always visible
+                IconButton(onClick = onAddClick) {
+                    Icon(
+                        Icons.Filled.Add,
+                        contentDescription = "Add Workout",
+                        modifier = Modifier.size(70.dp)
+                    )
+                }
+            }
+        )
+    }
+
+    if (showDeleteConfirmationDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmationDialog = false },
+            title = { Text("Confirm Deletion") },
+            text = { Text("Are you sure you want to delete the selected workouts?") },
+            confirmButton = {
+                Button(onClick = {
+                    val selectedIds = selectedWorkouts
+                    deleteSelectedWorkouts(selectedIds, {
+                        workoutLogs = it
+                    }, successMessage, errorMessage, workoutLogs)
+                    showDeleteConfirmationDialog = false
+                }) {
+                    Text(
+                        "Confirm",
+                        color = Color.White
+                    )
+                }
+            },
+            dismissButton = {
+                Button(onClick = { showDeleteConfirmationDialog = false }) {
+                    Text(
+                        "Cancel",
+                        color = Color.White
+                    )
+                }
+            }
+        )
+    }
+    val workoutTypes = arrayOf(
+        "cardio",
+        "olympic_weightlifting",
+        "plyometrics",
+        "powerlifting",
+        "strength",
+        "stretching",
+        "strongman")
+
+    if (showAddWorkoutDialog) {
+        // Function to reset the dialog fields
+        fun resetAddWorkoutDialogFields() {
+            newWorkoutName = ""
+            newWorkoutDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+            newWorkoutType = ""
+            dropDownText = ""
+            newWorkoutDuration = ""
+            newWorkoutDistance = ""
+            newWorkoutSets = ""
+            newWorkoutReps = ""
+            noteText = ""
+            showNoteField = false
+        }
+
+        resetAddWorkoutDialogFields()
+
+        AlertDialog(
+            onDismissRequest = { showAddWorkoutDialog = false },
+            title = { Text("Add New Workout") },
+            text = {
+                Column(
+                    Modifier.requiredHeight(height = 395.dp)
+                ) {
+                    // Common fields
+                    TextField(value = newWorkoutName, onValueChange = { newWorkoutName = it }, label = { Text("Workout Name") })
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    TextField(value = newWorkoutDate, onValueChange = { newWorkoutDate = it }, label = { Text("Date") })
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Dropdown for Workout Type
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = {
+                            expanded = !expanded
+                        }
+                    ) {
+                        TextField(
+                            value = dropDownText,
+                            onValueChange = { },
+                            readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            label = { Text(
+                                "Workout Type",
+                                fontSize = 16.sp
+                            ) },
+                            modifier = Modifier.menuAnchor()
+                        )
+
+                        ExposedDropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            workoutTypes.forEach { item ->
+                                DropdownMenuItem(
+                                    text = { Text(
+                                        text = item,
+                                        fontSize = 16.sp
+                                    ) },
+                                    onClick = {
+                                        dropDownText = item
+                                        expanded = false
+                                        newWorkoutType = item
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // Conditional fields based on workout type
+                    when (newWorkoutType) {
+                        "cardio" -> {
+                            newWorkoutSets = ""
+                            newWorkoutReps = ""
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            TextField(
+                                value = newWorkoutDuration,
+                                onValueChange = { newWorkoutDuration = it },
+                                label = { Text("Duration (HH:MM:SS)") }
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            TextField(
+                                value = newWorkoutDistance,
+                                onValueChange = { newWorkoutDistance = it },
+                                label = { Text("Distance (km)") }
+                            )
+                        }
+                        "stretching" -> {
+                            newWorkoutDistance = ""
+                            newWorkoutSets = ""
+                            newWorkoutReps = ""
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            TextField(
+                                value = newWorkoutDuration,
+                                onValueChange = { newWorkoutDuration = it },
+                                label = { Text("Duration (HH:MM:SS)") }
+                            )
+                        }
+                        "olympic_weightlifting", "powerlifting", "strongman", "strength", "plyometrics" -> {
+                            newWorkoutDistance = ""
+                            newWorkoutDuration = ""
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            TextField(
+                                value = newWorkoutSets,
+                                onValueChange = { newWorkoutSets = it },
+                                label = { Text("Sets") }
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            TextField(
+                                value = newWorkoutReps,
+                                onValueChange = { newWorkoutReps = it },
+                                label = { Text("Reps") }
+                            )
+                        }
+                    }
+
+                    // Note field
+                    if (showNoteField) {
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        TextField(
+                            value = noteText,
+                            onValueChange = { noteText = it },
+                            label = { Text("Note") }
+                        )
+                    }else {
+                        noteText = ""
+                    }
+
+                    // Toggle icon for showing/hiding note field
+                    IconToggleButton(
+                        checked = showNoteField,
+                        onCheckedChange = { showNoteField = !showNoteField }
+                    ) {
+                        Icon(
+                            imageVector = if (showNoteField) Icons.Default.Delete else Icons.Default.Add,
+                            contentDescription = if (showNoteField) "Hide Note" else "Add Note"
+                        )
+                    }
+
+
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    var isInputValid = true
+                    val errorMessages = mutableListOf<String>()
+
+                    // Validate Name
+                    if (newWorkoutName.isBlank()) {
+                        errorMessages.add("Workout name cannot be blank.")
+                        isInputValid = false
+                    }
+
+                    // Validate Date
+                    val (isDateValid, dateErrorMsg) = isValidDate(newWorkoutDate)
+                    if (!isDateValid) {
+                        errorMessages.add(dateErrorMsg)
+                        isInputValid = false
+                    }
+
+                    // Validate Duration for certain workout types
+                    if (newWorkoutType in listOf("cardio", "stretching") && !isValidDuration(newWorkoutDuration).first) {
+                        errorMessages.add(isValidDuration(newWorkoutDuration).second)
+                        isInputValid = false
+                    }
+
+                    // Validate Sets and Reps for certain workout types
+                    if (newWorkoutType in listOf("olympic_weightlifting", "powerlifting", "strongman", "strength", "plyometrics")) {
+                        val (isSetsValid, setsErrorMsg) = isValidIntField("", newWorkoutSets, "Sets")
+                        if (!isSetsValid) {
+                            errorMessages.add(setsErrorMsg)
+                            isInputValid = false
+                        }
+
+                        val (isRepsValid, repsErrorMsg) = isValidIntField("", newWorkoutReps, "Reps")
+                        if (!isRepsValid) {
+                            errorMessages.add(repsErrorMsg)
+                            isInputValid = false
+                        }
+                    }
+
+                    // Validate Note
+                    if (showNoteField && noteText.isBlank()) {
+                        errorMessages.add("Note cannot be blank.")
+                        isInputValid = false
+                    }
+
+                    if (!isInputValid) {
+                        // Display the first error message
+                        errorMessage.value = errorMessages.firstOrNull()
+                        return@Button
+                    }
+
+                    // Proceed to save the workout log, notes, and points
+                    val newWorkoutLog = WorkoutLog(
+                        id = logId,
+                        name = newWorkoutName,
+                        type = newWorkoutType,
+                        difficulty = "user entry", // Default difficulty
+                        duration = newWorkoutDuration,
+                        distance = if (newWorkoutDistance.isBlank()) null else newWorkoutDistance,
+                        sets = newWorkoutSets,
+                        reps = newWorkoutReps,
+                        date = newWorkoutDate
+                    )
+
+                    logsDbRef.child(logId).setValue(newWorkoutLog).addOnSuccessListener {
+                        if (showNoteField && noteText.isNotBlank()) {
+                            // Construct the note data with an id field
+                            val noteData = mapOf(
+                                "id" to logId,
+                                "note" to noteText
+                            )
+                            notesDbRef.child(logId).setValue(noteData)
+                        }
+
+                        val pointsData = mapOf(
+                            "id" to logId,
+                            "timestamp" to System.currentTimeMillis(),
+                            "name" to newWorkoutName,
+                            "points" to 25 // Points for the workout
+                        )
+                        val pointsDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/points")
+                        pointsDbRef.child(logId).setValue(pointsData)
+
+                        // Update the UI and close the dialog
+                        updateWorkoutLogsList(workoutLogs + listOf(newWorkoutLog))
+                        successMessage.value = "Workout added successfully."
+                        showAddWorkoutDialog = false
+                        resetAddWorkoutDialogFields()
+                    }.addOnFailureListener {
+                        errorMessage.value = "Error saving workout: ${it.message}"
+                    }
+                }) {
+                    Text(
+                        "Save",
+                        color = Color.White
+                    )
+                }
+            },
+            dismissButton = {
+                Button(onClick = { showAddWorkoutDialog = false }) {
+                    Text(
+                        "Cancel",
+                        color = Color.White
+                    )
+                }
+            }
+        )
+    }
+
+
 
     LaunchedEffect(Unit) {
         logsDbRef.addValueEventListener(object : ValueEventListener {
@@ -104,10 +500,9 @@ fun SettingsScreen() {
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if(isLoading) {
+        if (isLoading) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-        }
-        else{
+        } else {
             Surface(
                 modifier = Modifier
                     .padding(bottom = 80.dp)
@@ -115,8 +510,16 @@ fun SettingsScreen() {
                 color = MaterialTheme.colorScheme.background
             ) {
                 Column {
+                    CustomAppBar(
+                        onAddClick = {
+                            showAddWorkoutDialog = true
+                                     },
+                        onDeleteClick = { showDeleteConfirmationDialog = true },
+                        isAnyWorkoutSelected = isAnyWorkoutSelected
+                    )
                     // Snackbar for displaying errors
                     if (errorMessage.value != null) {
+                        successMessage.value = null
                         Snackbar(
                             action = {
                                 TextButton(onClick = { errorMessage.value = null }) {
@@ -130,6 +533,7 @@ fun SettingsScreen() {
                     }
                     // Snackbar for displaying success message
                     if (successMessage.value != null) {
+                        errorMessage.value = null
                         Snackbar(
                             action = {
                                 TextButton(onClick = { successMessage.value = null }) {
@@ -146,24 +550,26 @@ fun SettingsScreen() {
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        item{ Text(
-                            text = "Logged Workouts",
-                            modifier = Modifier.padding(bottom = 16.dp, top = 16.dp),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
-                        }
                         items(workoutLogs) { log ->
                             WorkoutLogCard(
                                 log = log,
+                                isChecked = checkedStates[log.id] ?: false,
+                                onCheckedChange = { isChecked ->
+                                    val updatedCheckedStates = checkedStates.toMutableMap().apply {
+                                        this[log.id] = isChecked
+                                    }
+                                    checkedStates = updatedCheckedStates
+                                    updateSelectedWorkouts(updatedCheckedStates.filterValues { it }.keys)
+                                },
                                 noteText = notesData[log.id] ?: "",
                                 successMessageState = successMessage,
-                                errorMessageState = errorMessage
+                                errorMessageState = errorMessage,
+                                updateWorkoutLogsList = updateWorkoutLogsList,
+                                workoutLogs = workoutLogs
                             )
                         }
-                    }
 
+                    }
                 }
             }
         }
@@ -175,15 +581,29 @@ fun SettingsScreen() {
 @Composable
 fun WorkoutLogCard(
     log: WorkoutLog,
+    isChecked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
     noteText: String,
     successMessageState: MutableState<String?>,
-    errorMessageState: MutableState<String?>
+    errorMessageState: MutableState<String?>,
+    updateWorkoutLogsList: (List<WorkoutLog>) -> Unit,
+    workoutLogs: List<WorkoutLog>
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var showAddNoteDialog by remember { mutableStateOf(false) }
     var showDeleteNoteDialog by remember { mutableStateOf(false) }
     var showEditNoteDialog by remember { mutableStateOf(false) }
+    var showAddWorkoutDialog by remember { mutableStateOf(false) }
+    var newWorkoutName by remember { mutableStateOf("") }
+    var newWorkoutDate by remember { mutableStateOf("") }
+    var newWorkoutType by remember { mutableStateOf("") }
+    var newWorkoutDifficulty by remember { mutableStateOf("") }
+    var newWorkoutReps by remember { mutableStateOf("") }
+    var newWorkoutSets by remember { mutableStateOf("") }
+    var newWorkoutDuration by remember { mutableStateOf("") }
+    var newWorkoutDistance by remember { mutableStateOf("") }
+    var showNoteField by remember { mutableStateOf(false) }
     var editNoteText by remember { mutableStateOf(noteText) }
     var editedName by remember { mutableStateOf(log.name) }
     var editedSets by remember(log.sets.isNotBlank()) { mutableStateOf(log.sets) }
@@ -193,6 +613,8 @@ fun WorkoutLogCard(
     var editedDistance by remember(log.distance) { mutableStateOf(log.distance ?: "") }
     var noteInputText by remember { mutableStateOf("") }
     val hasNote = noteText.isNotEmpty()
+
+
 
     fun resetForm() {
         // Reset error messages
@@ -208,8 +630,13 @@ fun WorkoutLogCard(
         editedDistance = log.distance ?: ""
     }
 
-
-    fun deleteWorkoutLog(logId: String, onSuccess: () -> Unit, onFailure: (String) -> Unit) {
+    fun deleteWorkoutLog(
+        logId: String,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit,
+        successMessageState: MutableState<String?>,
+        errorMessageState: MutableState<String?>
+    ) {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val logsDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
         val pointsDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/points")
@@ -231,7 +658,13 @@ fun WorkoutLogCard(
         }
     }
 
-    fun updateWorkoutLog(updatedLog: WorkoutLog, onSuccess: () -> Unit, onFailure: (String) -> Unit) {
+    fun updateWorkoutLog(
+        updatedLog: WorkoutLog,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit,
+        successMessageState: MutableState<String?>,
+        errorMessageState: MutableState<String?>
+    ) {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val db = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
 
@@ -246,71 +679,6 @@ fun WorkoutLogCard(
                 errorMessageState.value = it.message
                 successMessageState.value = null
             }
-    }
-
-    fun isValidDuration(editedDuration: String): Pair<Boolean, String> {
-        // Check if the duration is blank, which is allowed
-        if (editedDuration.isBlank()) {
-            return Pair(true, "")
-        }
-
-        // Regex for HH:MM:SS format
-        val regex = "^\\d{2,}:[0-5]\\d:[0-5]\\d$".toRegex()
-
-        // Check if the edited duration matches the regex
-        return if (editedDuration.matches(regex)) {
-            Pair(true, "")
-        } else {
-            Pair(false, "Invalid duration format. Please use HH:MM:SS.")
-        }
-    }
-
-    fun isValidDate(dateStr: String): Pair<Boolean, String> {
-        // Check if the date is blank
-        if (dateStr.isBlank()) {
-            return Pair(false, "Date cannot be blank")
-        }
-
-        // Check if the date matches the strict "YYYY-MM-DD" format
-        if (!dateStr.matches("\\d{4}-\\d{2}-\\d{2}".toRegex())) {
-            return Pair(false, "Invalid date format. Please use YYYY-MM-DD.")
-        }
-
-        // Parse the date and check if it's in the future
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.CANADA)
-        dateFormat.isLenient = false
-        return try {
-            val parsedDate = dateFormat.parse(dateStr)
-            val today = Calendar.getInstance().time
-            if (parsedDate!!.after(today)) {
-                Pair(false, "You cannot log workouts in the future unless you are Marty McFly")
-            } else {
-                Pair(true, "")
-            }
-        } catch (e: Exception) {
-            Pair(false, "Invalid date format. Please use YYYY-MM-DD.")
-        }
-    }
-
-    fun isValidIntField(originalValue: String, editedValue: String, fieldName: String): Pair<Boolean, String> {
-        // Check if the field is required but blank
-        if (originalValue.isNotBlank() && editedValue.isBlank()) {
-            return Pair(false, "$fieldName cannot be blank")
-        }
-        // Check if the field contains a valid integer
-        return try {
-            editedValue.toInt()
-            Pair(true, "")
-        } catch (e: NumberFormatException) {
-            Pair(false, "$fieldName must be an integer")
-        }
-    }
-
-    fun isValidDistance(originalDistance: String?, editedDistance: String): Pair<Boolean, String> {
-        if (!originalDistance.isNullOrBlank() && editedDistance.isBlank()) {
-            return Pair(false, "Distance cannot be blank")
-        }
-        return Pair(true, "")
     }
 
     fun validateInputs(): Boolean {
@@ -354,7 +722,10 @@ fun WorkoutLogCard(
 
         // Distance Validation - similar to Duration
         if (log.distance != null && log.distance!!.isNotBlank()) {
-            val (isDistanceValid, distanceValidationMsg) = isValidDistance(log.distance, editedDistance)
+            val (isDistanceValid, distanceValidationMsg) = isValidDistance(
+                log.distance,
+                editedDistance
+            )
             if (!isDistanceValid) {
                 errorMessageState.value = distanceValidationMsg
                 return false
@@ -376,16 +747,22 @@ fun WorkoutLogCard(
             log.duration = editedDuration
             log.distance = editedDistance
 
-            updateWorkoutLog(log, onSuccess = {
-                showEditDialog = false
-            }, onFailure = { error ->
-                errorMessageState.value = error
-                successMessageState.value = null
-            })
+            updateWorkoutLog(
+                log,
+                onSuccess = { showEditDialog = false },
+                onFailure = { error -> errorMessageState.value = error },
+                successMessageState,
+                errorMessageState
+            )
         }
     }
 
-    fun saveNoteToFirebase(logId: String, noteText: String) {
+    fun saveNoteToFirebase(
+        logId: String,
+        noteText: String,
+        successMessageState: MutableState<String?>,
+        errorMessageState: MutableState<String?>
+    ) {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val notesDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/notes")
 
@@ -400,7 +777,11 @@ fun WorkoutLogCard(
         }
     }
 
-    fun deleteNoteFromFirebase(logId: String, successMessageState: MutableState<String?>, errorMessageState: MutableState<String?>) {
+    fun deleteNoteFromFirebase(
+        logId: String,
+        successMessageState: MutableState<String?>,
+        errorMessageState: MutableState<String?>
+    ) {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val notesDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/notes")
 
@@ -411,7 +792,12 @@ fun WorkoutLogCard(
         }
     }
 
-    fun updateNoteFromFirebase(logId: String, updatedNoteText: String, successMessageState: MutableState<String?>, errorMessageState: MutableState<String?>) {
+    fun updateNoteFromFirebase(
+        logId: String,
+        updatedNoteText: String,
+        successMessageState: MutableState<String?>,
+        errorMessageState: MutableState<String?>
+    ) {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val notesDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/notes")
 
@@ -453,6 +839,43 @@ fun WorkoutLogCard(
         }
     }
 
+    fun addNewWorkout(
+        workout: WorkoutLog,
+        noteText: String,
+        successMessage: MutableState<String?>,
+        errorMessage: MutableState<String?>,
+        updateWorkoutLogs: (List<WorkoutLog>) -> Unit,
+        workoutLogs: List<WorkoutLog>
+    ) {
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val dbRef = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
+        val notesDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/notes")
+
+        // Generate a unique ID for the new workout
+        val newWorkoutId = dbRef.push().key ?: return
+        workout.id = newWorkoutId
+
+        // Save the workout
+        dbRef.child(newWorkoutId).setValue(workout).addOnSuccessListener {
+            // Add the note if it's not empty
+            if (noteText.isNotBlank()) {
+                val note = mapOf(
+                    "id" to newWorkoutId,
+                    "note" to noteText
+                )
+                notesDbRef.child(newWorkoutId).setValue(note)
+            }
+
+            successMessage.value = "New workout added successfully."
+            errorMessage.value = null
+            // Refresh the workoutLogs list
+            updateWorkoutLogs(listOf(workout) + workoutLogs)
+        }.addOnFailureListener {
+            errorMessage.value = it.message ?: "An error occurred while adding the workout."
+            successMessage.value = null
+        }
+    }
+
     if (showAddNoteDialog) {
         AlertDialog(
             onDismissRequest = { showAddNoteDialog = false },
@@ -467,17 +890,20 @@ fun WorkoutLogCard(
             confirmButton = {
                 Button(onClick = {
                     if (noteInputText.isNotBlank()) {
-                        // Save note to Firebase using noteInputText
-                        saveNoteToFirebase(log.id, noteInputText)
+                        saveNoteToFirebase(
+                            log.id,
+                            noteInputText,
+                            successMessageState,
+                            errorMessageState
+                        )
                         showAddNoteDialog = false
                     } else {
-                        // Show error message
                         errorMessageState.value = "Note cannot be empty"
                     }
                 }) {
                     Text(
                         text = "Save",
-                        color = MaterialTheme.colorScheme.secondary
+                        color = Color.White
                     )
                 }
             },
@@ -485,7 +911,7 @@ fun WorkoutLogCard(
                 Button(onClick = { showAddNoteDialog = false }) {
                     Text(
                         text = "Cancel",
-                        color = MaterialTheme.colorScheme.secondary
+                        color = Color.White
                     )
                 }
             }
@@ -500,20 +926,24 @@ fun WorkoutLogCard(
             text = { Text("Are you sure you want to delete this note?") },
             confirmButton = {
                 Button(onClick = {
-                    deleteNoteFromFirebase(log.id, successMessageState, errorMessageState)
+                    deleteNoteFromFirebase(
+                        log.id,
+                        successMessageState,
+                        errorMessageState
+                    )
                     showDeleteNoteDialog = false
                 }) {
                     Text(
-                        text = "Confirm",
-                        color = MaterialTheme.colorScheme.secondary
+                        "Confirm",
+                        color = Color.White
                     )
                 }
             },
             dismissButton = {
                 Button(onClick = { showDeleteNoteDialog = false }) {
                     Text(
-                       text = "Cancel",
-                       color = MaterialTheme.colorScheme.secondary
+                        text = "Cancel",
+                        color = Color.White
                     )
                 }
             }
@@ -534,12 +964,17 @@ fun WorkoutLogCard(
             },
             confirmButton = {
                 Button(onClick = {
-                    updateNoteFromFirebase(log.id, editNoteText, successMessageState, errorMessageState)
+                    updateNoteFromFirebase(
+                        log.id,
+                        editNoteText,
+                        successMessageState,
+                        errorMessageState
+                    )
                     showEditNoteDialog = false
                 }) {
                     Text(
                         text = "Save",
-                        color = MaterialTheme.colorScheme.secondary
+                        color = Color.White
                     )
                 }
             },
@@ -547,12 +982,14 @@ fun WorkoutLogCard(
                 Button(onClick = { showEditNoteDialog = false }) {
                     Text(
                         text = "Cancel",
-                        color = MaterialTheme.colorScheme.secondary
+                        color = Color.White
                     )
                 }
             }
         )
     }
+
+
 
     if (showDeleteDialog) {
 
@@ -563,16 +1000,17 @@ fun WorkoutLogCard(
             text = { Text("Are you sure you want to delete this workout log?") },
             confirmButton = {
                 Button(onClick = {
-                    deleteWorkoutLog(log.id, onSuccess = {
-                        showDeleteDialog = false
-                    }, onFailure = {
-                        showDeleteDialog = false
-                        errorMessageState.value = it
-                    })
+                    deleteWorkoutLog(
+                        log.id,
+                        onSuccess = { showDeleteDialog = false },
+                        onFailure = { errorMessage -> errorMessageState.value = errorMessage },
+                        successMessageState,
+                        errorMessageState
+                    )
                 }) {
                     Text(
-                        text = "Confirm",
-                        color = MaterialTheme.colorScheme.secondary
+                        "Confirm",
+                        color = Color.White
                     )
                 }
             },
@@ -580,7 +1018,7 @@ fun WorkoutLogCard(
                 Button(onClick = { showDeleteDialog = false }) {
                     Text(
                         text = "Cancel",
-                        color = MaterialTheme.colorScheme.secondary
+                        color = Color.White
                     )
                 }
             }
@@ -652,7 +1090,7 @@ fun WorkoutLogCard(
                 }) {
                     Text(
                         text = "Save",
-                        color = MaterialTheme.colorScheme.secondary
+                        color = Color.White
                     )
                 }
 
@@ -661,7 +1099,7 @@ fun WorkoutLogCard(
                 Button(onClick = { showEditDialog = false }) {
                     Text(
                         text = "Cancel",
-                        color = MaterialTheme.colorScheme.secondary
+                        color = Color.White
                     )
                 }
             }
@@ -671,18 +1109,21 @@ fun WorkoutLogCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 8.dp, end = 8.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .padding(16.dp)
-        ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.Top,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column(modifier = Modifier.widthIn(min = 50.dp, max = 50.dp)){
+                Column(
+                    modifier = Modifier.widthIn(min = 50.dp, max = 50.dp),
+                ) {
+                    Checkbox(
+                        checked = isChecked,
+                        onCheckedChange = onCheckedChange
+                    )
                     val iconResId = when (log.type) {
                         "cardio" -> R.drawable.icon_cardio
                         "olympic_weightlifting" -> R.drawable.icon_olympic_weighlifting
@@ -700,7 +1141,7 @@ fun WorkoutLogCard(
                         modifier = Modifier.size(50.dp)
                     )
                 }
-                Column(modifier = Modifier.widthIn(min = 225.dp, max = 225.dp)){
+                Column(modifier = Modifier.widthIn(min = 225.dp, max = 225.dp)) {
                     // Workout log details
                     Text(
                         text = log.date,
@@ -770,7 +1211,7 @@ fun WorkoutLogCard(
                     }
                 }
 
-                Column{
+                Column {
                     if (!hasNote) {
                         Icon(
                             painter = painterResource(id = R.drawable.add_note),
@@ -813,7 +1254,8 @@ fun WorkoutLogCard(
                             modifier = Modifier
                                 .size(24.dp)
                                 .clickable {
-                                    editNoteText = noteText // Set the current note text before opening the dialog
+                                    editNoteText =
+                                        noteText // Set the current note text before opening the dialog
                                     showEditNoteDialog = true
                                 }
                         )
@@ -832,10 +1274,148 @@ fun WorkoutLogCard(
                     }
                 }
             }
-        }
+
+    }
+}
+fun deleteSelectedWorkouts(
+    selectedIds: Set<String>,
+    updateWorkoutLogs: (List<WorkoutLog>) -> Unit,
+    successMessage: MutableState<String?>,
+    errorMessage: MutableState<String?>,
+    workoutLogs: List<WorkoutLog>
+) {
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+    val logsDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
+    val pointsDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/points")
+    val notesDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/notes")
+
+    // Track completion of all delete operations
+    val deleteTasks = selectedIds.flatMap { logId ->
+        listOf(
+            logsDbRef.child(logId).removeValue(),
+            pointsDbRef.child(logId).removeValue(),
+            notesDbRef.child(logId).removeValue()
+        )
+    }
+
+    // Wait for all delete operations to complete
+    Tasks.whenAllSuccess<Void>(deleteTasks).addOnSuccessListener {
+        // Once all deletes are successful, update the local state
+        val updatedList = workoutLogs.filterNot { it.id in selectedIds }
+        updateWorkoutLogs(updatedList)
+        successMessage.value = "Selected workout logs successfully deleted."
+    }.addOnFailureListener {
+        errorMessage.value = it.message ?: "An error occurred during deletion"
     }
 }
 
+fun isValidDuration(editedDuration: String): Pair<Boolean, String> {
+    // Check if the duration is blank, which is allowed
+    if (editedDuration.isBlank()) {
+        return Pair(true, "")
+    }
 
+    // Regex for HH:MM:SS format
+    val regex = "^\\d{2,}:[0-5]\\d:[0-5]\\d$".toRegex()
+
+    // Check if the edited duration matches the regex
+    return if (editedDuration.matches(regex)) {
+        Pair(true, "")
+    } else {
+        Pair(false, "Invalid duration format. Please use HH:MM:SS.")
+    }
+}
+
+fun isValidDate(dateStr: String): Pair<Boolean, String> {
+    // Check if the date is blank
+    if (dateStr.isBlank()) {
+        return Pair(false, "Date cannot be blank")
+    }
+
+    // Check if the date matches the strict "YYYY-MM-DD" format
+    if (!dateStr.matches("\\d{4}-\\d{2}-\\d{2}".toRegex())) {
+        return Pair(false, "Invalid date format. Please use YYYY-MM-DD.")
+    }
+
+    // Parse the date and check if it's in the future
+    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.CANADA)
+    dateFormat.isLenient = false
+    return try {
+        val parsedDate = dateFormat.parse(dateStr)
+        val today = Calendar.getInstance().time
+        if (parsedDate!!.after(today)) {
+            Pair(false, "You cannot log workouts in the future unless you are Marty McFly")
+        } else {
+            Pair(true, "")
+        }
+    } catch (e: Exception) {
+        Pair(false, "Invalid date format. Please use YYYY-MM-DD.")
+    }
+}
+
+fun isValidIntField(
+    originalValue: String,
+    editedValue: String,
+    fieldName: String
+): Pair<Boolean, String> {
+    // Check if the field is required but blank
+    if (originalValue.isNotBlank() && editedValue.isBlank()) {
+        return Pair(false, "$fieldName cannot be blank")
+    }
+    // Check if the field contains a valid integer
+    return try {
+        editedValue.toInt()
+        Pair(true, "")
+    } catch (e: NumberFormatException) {
+        Pair(false, "$fieldName must be an integer")
+    }
+}
+
+fun isValidDistance(
+    originalDistance: String?,
+    editedDistance: String
+): Pair<Boolean, String> {
+    if (!originalDistance.isNullOrBlank() && editedDistance.isBlank()) {
+        return Pair(false, "Distance cannot be blank")
+    }
+    return Pair(true, "")
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DropdownMenu(
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    newWorkoutType: String,
+    onNewWorkoutTypeChange: (String) -> Unit
+) {
+    val workoutTypes = arrayOf("cardio", "olympic_weightlifting", "plyometrics", "powerlifting", "strength", "stretching", "strongman")
+
+    Column {
+        TextField(
+            value = newWorkoutType,
+            onValueChange = { onNewWorkoutTypeChange(it) },
+            label = { Text("Workout Type") },
+            trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = "Dropdown") },
+            readOnly = true,
+            modifier = Modifier.clickable { onExpandedChange(true) }
+        )
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { onExpandedChange(false) }
+        ) {
+            workoutTypes.forEach { type ->
+                DropdownMenuItem(
+                    onClick = {
+                        onNewWorkoutTypeChange(type)
+                        onExpandedChange(false)
+                    },
+                    text = { Text(type) },
+                )
+            }
+        }
+    }
+}
 
 

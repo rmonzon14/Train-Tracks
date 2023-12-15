@@ -160,7 +160,7 @@ fun Login(
             Text(
                 text = "Login",
                 fontSize = 20.sp,
-                color = Color.Black
+                color = Color.White
             )
         }
 

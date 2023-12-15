@@ -1,7 +1,7 @@
 package com.example.traintracks
 
 data class WorkoutLog(
-    val id: String = "",
+    var id: String = "",
     var name: String = "",
     var type: String = "",
     var difficulty: String = "",

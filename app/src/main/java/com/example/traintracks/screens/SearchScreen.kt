@@ -613,16 +613,20 @@ private fun addToFirebaseDatabase(result: com.example.traintracks.SearchResult) 
     if (currentUser != null) {
         val userId = currentUser.uid
 
+        // Push a new entry and capture the generated unique key
         val db = FirebaseDatabase.getInstance().getReference("users/$userId/workouts").push()
+        val key = db.key ?: return // Return if key is null
 
-        val workoutData = result.toMap()
+        // Include the key in the workout data
+        val workoutData = result.toMap(key)
 
         db.setValue(workoutData)
     }
 }
 
-fun com.example.traintracks.SearchResult.toMap(): Map<String, Any?> {
+fun com.example.traintracks.SearchResult.toMap(id: String): Map<String, Any?> {
     return mapOf(
+        "id" to id,
         "name" to name,
         "type" to type,
         "difficulty" to difficulty,

@@ -36,6 +36,7 @@ import com.example.traintracks.WorkoutLog
 import com.google.firebase.auth.auth
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.text.style.TextOverflow
 import java.text.SimpleDateFormat
@@ -73,6 +74,9 @@ fun WorkoutScreen() {
     var showConfirmationMessage by remember { mutableStateOf(false) }
     var showErrorSnackbar by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+    var selectedWorkouts by remember { mutableStateOf<Set<String>>(setOf()) }
+    var showDeleteConfirmationDialog by remember { mutableStateOf(false) }
+
 
     db.addValueEventListener(object : ValueEventListener {
         override fun onDataChange(snapshot: DataSnapshot) {
@@ -113,6 +117,45 @@ fun WorkoutScreen() {
             else -> MaterialTheme.colorScheme.secondary
         }
     }
+
+    @Composable
+    fun CustomAppBar(
+        onDeleteClick: () -> Unit,
+        isAnyWorkoutSelected: Boolean
+    ) {
+        TopAppBar(
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ){
+                    Text(
+                        text = "Favourite Workouts",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
+                    },
+            navigationIcon = {
+                if (isAnyWorkoutSelected) {
+                    IconButton(
+                        onClick = onDeleteClick
+                    ) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = "Delete Selected Workouts",
+                            modifier = Modifier.size(70.dp)
+                        )
+                    }
+                }
+            },
+            actions = {
+            }
+        )
+    }
+
 
     fun isValidDuration(duration: String): Boolean {
         // Regex to check if duration is in the format HH:MM:SS, allowing hours to exceed 23
@@ -249,8 +292,46 @@ fun WorkoutScreen() {
         )
     }
 
+    if (showDeleteConfirmationDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmationDialog = false },
+            title = { Text("Confirm Deletion") },
+            text = { Text("Are you sure you want to delete the selected workouts?") },
+            confirmButton = {
+                Button(onClick = {
+                    // Deletion logic for selected workouts
+                    selectedWorkouts.forEach { workoutId ->
+                        db.child(workoutId).removeValue().addOnSuccessListener {
+                            // Remove the deleted workout from the workoutList and update the UI
+                            workoutList = workoutList.filterNot { it.id == workoutId }
+
+                            showConfirmationMessage = true
+                            errorMessage = ""  // Clear any previous error message
+                        }.addOnFailureListener {
+                            // Handle any errors
+                            errorMessage = "Error deleting workout: ${it.message}"
+                        }
+                    }
+                    // Clear the selection and close the dialog
+                    selectedWorkouts = setOf()
+                    showDeleteConfirmationDialog = false
+                }) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { showDeleteConfirmationDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+
     // Full-screen dialog for displaying selected workout details
     if (showFullScreenDialog && selectedWorkout != null) {
+        showConfirmationMessage = false
+        showErrorSnackbar = false
         Dialog(
             onDismissRequest = { showFullScreenDialog = false },
             properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -267,6 +348,7 @@ fun WorkoutScreen() {
                         .verticalScroll(scrollState),
                 ) {
                     if (showConfirmationMessage) {
+                        showErrorSnackbar = false
                         Snackbar(
                             action = {
                                 TextButton(onClick = {
@@ -282,6 +364,7 @@ fun WorkoutScreen() {
                     }
 
                     if (showErrorSnackbar) {
+                        showConfirmationMessage = false
                         Snackbar(
                             action = {
                                 TextButton(onClick = { showErrorSnackbar = false }) {
@@ -392,7 +475,7 @@ fun WorkoutScreen() {
                         ) {
                             Text(
                                 "Log Workout",
-                                color = MaterialTheme.colorScheme.secondary)
+                                color = Color.White)
                         }
 
                         if (showLogWorkoutDialog) {
@@ -461,13 +544,13 @@ fun WorkoutScreen() {
                                             Button(onClick = { saveWorkoutLog(workout) }) {
                                                 Text(
                                                     "Save",
-                                                    color = MaterialTheme.colorScheme.secondary
+                                                    color = Color.White
                                                 )
                                             }
                                             Button(onClick = { showLogWorkoutDialog = false }) {
                                                 Text(
                                                     "Cancel",
-                                                    color = MaterialTheme.colorScheme.secondary
+                                                    color = Color.White
                                                 )
                                             }
                                         }
@@ -485,115 +568,154 @@ fun WorkoutScreen() {
         if(isLoading){
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         } else {
-            // Main content of the WorkoutScreen
-            if (workoutList.isEmpty()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(22.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text("No workouts found for your profile")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = {
-                            val intent = Intent(currentContext, SearchScreen::class.java)
-                            currentContext.startActivity(intent)
+            Column{
+                CustomAppBar(
+                    onDeleteClick = { showDeleteConfirmationDialog = true },
+                    isAnyWorkoutSelected = selectedWorkouts.isNotEmpty()
+                )
+                if (showConfirmationMessage) {
+                    showErrorSnackbar = false
+                    Snackbar(
+                        action = {
+                            TextButton(onClick = {
+                                showConfirmationMessage = false
+                            }) {
+                                Text("OK")
+                            }
                         },
-                        shape = RoundedCornerShape(5.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.LightGray,
-                            contentColor = MaterialTheme.colorScheme.primary
-                        )
+                        modifier = Modifier.padding(8.dp)
                     ) {
-                        Text("Find Workouts")
+                        Text("Selected Workouts Deleted Successfully")
                     }
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .padding(top = 24.dp, bottom = 85.dp)
-                        .fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    item {
-                        Text(
-                            text = "Saved Workouts",
-                            modifier = Modifier.padding(bottom = 16.dp),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
+
+                if (showErrorSnackbar) {
+                    showConfirmationMessage = false
+                    Snackbar(
+                        action = {
+                            TextButton(onClick = { showErrorSnackbar = false }) {
+                                Text("OK")
+                            }
+                        },
+                        modifier = Modifier.padding(8.dp)
+                    ) {
+                        Text(errorMessage)
                     }
-
-                    itemsIndexed(workoutList) { _, workout ->
-                        Card(
+                }
+                // Main content of the WorkoutScreen
+                if (workoutList.isEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(22.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text("No workouts found for your profile")
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = {
+                                val intent = Intent(currentContext, SearchScreen::class.java)
+                                currentContext.startActivity(intent)
+                            },
+                            shape = RoundedCornerShape(5.dp),
                             modifier = Modifier
-                                .clickable {
-                                    selectedWorkout = workout
-                                    showFullScreenDialog = true
-                                }
-                                .widthIn(min = 350.dp, max = 350.dp)
+                                .fillMaxWidth()
+                                .padding(8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = Color.White
+                            )
                         ) {
-                            Column(modifier = Modifier.padding(8.dp)){
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ){
-                                    Column(modifier = Modifier.width(60.dp)) {
-                                        val iconResId = when (workout.type) {
-                                            "cardio" -> icon_cardio
-                                            "olympic_weightlifting" -> icon_olympic_weighlifting
-                                            "plyometrics" -> icon_plyometrics
-                                            "powerlifting" -> icon_powerlifting
-                                            "strength" -> icon_strength
-                                            "stretching" -> icon_stretching
-                                            "strongman" -> icon_strongman
-                                            else -> icon_strongman
-                                        }
-                                        Image(
-                                            painter = painterResource(id = iconResId),
-                                            contentDescription = "Workout Icon",
-                                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.secondary),
-                                            modifier = Modifier
-                                                .size(60.dp)
-                                                .align(Alignment.CenterHorizontally)
-                                        )
+                            Text("Find Workouts")
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .padding(top = 24.dp, bottom = 85.dp)
+                            .fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        itemsIndexed(workoutList) { index, workout ->
+                            Card(
+                                modifier = Modifier
+                                    .clickable {
+                                        selectedWorkout = workout
+                                        showFullScreenDialog = true
                                     }
-                                    Column(modifier = Modifier.width(245.dp)) {
+                                    .widthIn(min = 390.dp, max = 390.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp)){
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ){
+                                        Column(modifier = Modifier.width(60.dp)) {
+                                            val iconResId = when (workout.type) {
+                                                "cardio" -> icon_cardio
+                                                "olympic_weightlifting" -> icon_olympic_weighlifting
+                                                "plyometrics" -> icon_plyometrics
+                                                "powerlifting" -> icon_powerlifting
+                                                "strength" -> icon_strength
+                                                "stretching" -> icon_stretching
+                                                "strongman" -> icon_strongman
+                                                else -> icon_strongman
+                                            }
+                                            Image(
+                                                painter = painterResource(id = iconResId),
+                                                contentDescription = "Workout Icon",
+                                                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.secondary),
+                                                modifier = Modifier
+                                                    .size(60.dp)
+                                                    .align(Alignment.CenterHorizontally)
+                                            )
+                                        }
+                                        Column(modifier = Modifier.width(245.dp)) {
 
-                                        Text(
-                                            text = workout.name,
-                                            fontSize = 24.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.secondary,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                                            Text(
+                                                text = workout.name,
+                                                fontSize = 24.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.secondary,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
 
-                                        Spacer(modifier = Modifier.height(6.dp))
+                                            Spacer(modifier = Modifier.height(6.dp))
 
-                                        Text(
-                                            text = "Type: ${workout.type}",
-                                            fontSize = 18.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = getTypeColor(workout.type)
-                                        )
+                                            Text(
+                                                text = "Type: ${workout.type}",
+                                                fontSize = 18.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = getTypeColor(workout.type)
+                                            )
 
-                                        Spacer(modifier = Modifier.height(4.dp))
+                                            Spacer(modifier = Modifier.height(4.dp))
 
-                                        Text(
-                                            text = "Difficulty: ${workout.difficulty}",
-                                            fontSize = 18.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = getDifficultyColor(workout.difficulty)
-                                        )
+                                            Text(
+                                                text = "Difficulty: ${workout.difficulty}",
+                                                fontSize = 18.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = getDifficultyColor(workout.difficulty)
+                                            )
+                                        }
+                                        Column {
+                                            Checkbox(
+                                                checked = selectedWorkouts.contains(workout.id),
+                                                onCheckedChange = { isChecked ->
+                                                    val updatedSelection = selectedWorkouts.toMutableSet()
+                                                    if (isChecked) {
+                                                        updatedSelection.add(workout.id)
+                                                    } else {
+                                                        updatedSelection.remove(workout.id)
+                                                    }
+                                                    selectedWorkouts = updatedSelection
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -601,6 +723,7 @@ fun WorkoutScreen() {
                     }
                 }
             }
+
         }
     }
 }

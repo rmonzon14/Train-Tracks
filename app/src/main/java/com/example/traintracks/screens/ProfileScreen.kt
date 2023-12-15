@@ -22,6 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -141,9 +142,13 @@ fun ProfileScreen() {
                 contentColor = MaterialTheme.colorScheme.secondary
             )
         ) {
-            Icon(Icons.Default.Person, contentDescription = "Logout Icon")
+            Icon(Icons.Default.Person, contentDescription = "Logout Icon", tint = Color.White)
             Spacer(Modifier.width(8.dp))
-            Text("Logout", fontWeight = FontWeight.Bold)
+            Text(
+                "Logout",
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
         }
     }
 }
