@@ -10,21 +10,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -54,7 +50,7 @@ import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -64,19 +60,17 @@ import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.MutableState
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.sp
 import com.example.traintracks.R
 import com.google.android.gms.tasks.Tasks
-import com.google.firebase.Firebase
-import com.google.firebase.auth.auth
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -178,7 +172,7 @@ fun SettingsScreen() {
                 }) {
                     Text(
                         "Confirm",
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.background
                     )
                 }
             },
@@ -186,7 +180,7 @@ fun SettingsScreen() {
                 Button(onClick = { showDeleteConfirmationDialog = false }) {
                     Text(
                         "Cancel",
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.background
                     )
                 }
             }
@@ -223,7 +217,10 @@ fun SettingsScreen() {
             title = { Text("Add New Workout") },
             text = {
                 Column(
-                    Modifier.requiredHeight(height = 395.dp)
+                    Modifier
+                        .verticalScroll(rememberScrollState())
+                        .imePadding()
+                        .requiredHeight(height = 395.dp)
                 ) {
                     // Common fields
                     TextField(value = newWorkoutName, onValueChange = { newWorkoutName = it }, label = { Text("Workout Name") })
@@ -347,7 +344,8 @@ fun SettingsScreen() {
                     ) {
                         Icon(
                             imageVector = if (showNoteField) Icons.Default.Delete else Icons.Default.Add,
-                            contentDescription = if (showNoteField) "Hide Note" else "Add Note"
+                            contentDescription = if (showNoteField) "Hide Note" else "Add Note",
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
@@ -412,7 +410,7 @@ fun SettingsScreen() {
                         type = newWorkoutType,
                         difficulty = "user entry", // Default difficulty
                         duration = newWorkoutDuration,
-                        distance = if (newWorkoutDistance.isBlank()) null else newWorkoutDistance,
+                        distance = newWorkoutDistance.ifBlank { null },
                         sets = newWorkoutSets,
                         reps = newWorkoutReps,
                         date = newWorkoutDate
@@ -448,7 +446,7 @@ fun SettingsScreen() {
                 }) {
                     Text(
                         "Save",
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.background
                     )
                 }
             },
@@ -456,7 +454,7 @@ fun SettingsScreen() {
                 Button(onClick = { showAddWorkoutDialog = false }) {
                     Text(
                         "Cancel",
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.background
                     )
                 }
             }
@@ -510,13 +508,7 @@ fun SettingsScreen() {
                 color = MaterialTheme.colorScheme.background
             ) {
                 Column {
-                    CustomAppBar(
-                        onAddClick = {
-                            showAddWorkoutDialog = true
-                                     },
-                        onDeleteClick = { showDeleteConfirmationDialog = true },
-                        isAnyWorkoutSelected = isAnyWorkoutSelected
-                    )
+
                     // Snackbar for displaying errors
                     if (errorMessage.value != null) {
                         successMessage.value = null
@@ -545,6 +537,15 @@ fun SettingsScreen() {
                             Text(successMessage.value!!)
                         }
                     }
+
+                    CustomAppBar(
+                        onAddClick = {
+                            showAddWorkoutDialog = true
+                                     },
+                        onDeleteClick = { showDeleteConfirmationDialog = true },
+                        isAnyWorkoutSelected = isAnyWorkoutSelected
+                    )
+
                     LazyColumn(
                         modifier = Modifier.padding(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -564,8 +565,6 @@ fun SettingsScreen() {
                                 noteText = notesData[log.id] ?: "",
                                 successMessageState = successMessage,
                                 errorMessageState = errorMessage,
-                                updateWorkoutLogsList = updateWorkoutLogsList,
-                                workoutLogs = workoutLogs
                             )
                         }
 
@@ -586,24 +585,12 @@ fun WorkoutLogCard(
     noteText: String,
     successMessageState: MutableState<String?>,
     errorMessageState: MutableState<String?>,
-    updateWorkoutLogsList: (List<WorkoutLog>) -> Unit,
-    workoutLogs: List<WorkoutLog>
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var showAddNoteDialog by remember { mutableStateOf(false) }
     var showDeleteNoteDialog by remember { mutableStateOf(false) }
     var showEditNoteDialog by remember { mutableStateOf(false) }
-    var showAddWorkoutDialog by remember { mutableStateOf(false) }
-    var newWorkoutName by remember { mutableStateOf("") }
-    var newWorkoutDate by remember { mutableStateOf("") }
-    var newWorkoutType by remember { mutableStateOf("") }
-    var newWorkoutDifficulty by remember { mutableStateOf("") }
-    var newWorkoutReps by remember { mutableStateOf("") }
-    var newWorkoutSets by remember { mutableStateOf("") }
-    var newWorkoutDuration by remember { mutableStateOf("") }
-    var newWorkoutDistance by remember { mutableStateOf("") }
-    var showNoteField by remember { mutableStateOf(false) }
     var editNoteText by remember { mutableStateOf(noteText) }
     var editedName by remember { mutableStateOf(log.name) }
     var editedSets by remember(log.sets.isNotBlank()) { mutableStateOf(log.sets) }
@@ -839,43 +826,6 @@ fun WorkoutLogCard(
         }
     }
 
-    fun addNewWorkout(
-        workout: WorkoutLog,
-        noteText: String,
-        successMessage: MutableState<String?>,
-        errorMessage: MutableState<String?>,
-        updateWorkoutLogs: (List<WorkoutLog>) -> Unit,
-        workoutLogs: List<WorkoutLog>
-    ) {
-        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
-        val dbRef = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
-        val notesDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/notes")
-
-        // Generate a unique ID for the new workout
-        val newWorkoutId = dbRef.push().key ?: return
-        workout.id = newWorkoutId
-
-        // Save the workout
-        dbRef.child(newWorkoutId).setValue(workout).addOnSuccessListener {
-            // Add the note if it's not empty
-            if (noteText.isNotBlank()) {
-                val note = mapOf(
-                    "id" to newWorkoutId,
-                    "note" to noteText
-                )
-                notesDbRef.child(newWorkoutId).setValue(note)
-            }
-
-            successMessage.value = "New workout added successfully."
-            errorMessage.value = null
-            // Refresh the workoutLogs list
-            updateWorkoutLogs(listOf(workout) + workoutLogs)
-        }.addOnFailureListener {
-            errorMessage.value = it.message ?: "An error occurred while adding the workout."
-            successMessage.value = null
-        }
-    }
-
     if (showAddNoteDialog) {
         AlertDialog(
             onDismissRequest = { showAddNoteDialog = false },
@@ -903,7 +853,7 @@ fun WorkoutLogCard(
                 }) {
                     Text(
                         text = "Save",
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.background
                     )
                 }
             },
@@ -911,7 +861,7 @@ fun WorkoutLogCard(
                 Button(onClick = { showAddNoteDialog = false }) {
                     Text(
                         text = "Cancel",
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.background
                     )
                 }
             }
@@ -935,7 +885,7 @@ fun WorkoutLogCard(
                 }) {
                     Text(
                         "Confirm",
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.background
                     )
                 }
             },
@@ -943,7 +893,7 @@ fun WorkoutLogCard(
                 Button(onClick = { showDeleteNoteDialog = false }) {
                     Text(
                         text = "Cancel",
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.background
                     )
                 }
             }
@@ -974,7 +924,7 @@ fun WorkoutLogCard(
                 }) {
                     Text(
                         text = "Save",
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.background
                     )
                 }
             },
@@ -982,7 +932,7 @@ fun WorkoutLogCard(
                 Button(onClick = { showEditNoteDialog = false }) {
                     Text(
                         text = "Cancel",
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.background
                     )
                 }
             }
@@ -1010,7 +960,7 @@ fun WorkoutLogCard(
                 }) {
                     Text(
                         "Confirm",
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.background
                     )
                 }
             },
@@ -1018,7 +968,7 @@ fun WorkoutLogCard(
                 Button(onClick = { showDeleteDialog = false }) {
                     Text(
                         text = "Cancel",
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.background
                     )
                 }
             }
@@ -1090,7 +1040,7 @@ fun WorkoutLogCard(
                 }) {
                     Text(
                         text = "Save",
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.background
                     )
                 }
 
@@ -1099,7 +1049,7 @@ fun WorkoutLogCard(
                 Button(onClick = { showEditDialog = false }) {
                     Text(
                         text = "Cancel",
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.background
                     )
                 }
             }
@@ -1109,6 +1059,7 @@ fun WorkoutLogCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .alpha(0.85f)
     ) {
             Row(
                 modifier = Modifier
@@ -1118,9 +1069,14 @@ fun WorkoutLogCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(
-                    modifier = Modifier.widthIn(min = 50.dp, max = 50.dp),
+                    modifier = Modifier.widthIn(min = 55.dp, max = 55.dp),
                 ) {
                     Checkbox(
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = MaterialTheme.colorScheme.primary, // Color when the Checkbox is checked
+                            uncheckedColor = MaterialTheme.colorScheme.primary, // Color when the Checkbox is unchecked
+                            checkmarkColor = MaterialTheme.colorScheme.secondary // Color of the checkmark
+                        ),
                         checked = isChecked,
                         onCheckedChange = onCheckedChange
                     )
@@ -1129,7 +1085,7 @@ fun WorkoutLogCard(
                         "olympic_weightlifting" -> R.drawable.icon_olympic_weighlifting
                         "plyometrics" -> R.drawable.icon_plyometrics
                         "powerlifting" -> R.drawable.icon_powerlifting
-                        "strength" -> R.drawable.icon_strength
+                        "strength" -> R.drawable.strength
                         "stretching" -> R.drawable.icon_stretching
                         "strongman" -> R.drawable.icon_strongman
                         else -> R.drawable.icon_strongman
@@ -1138,7 +1094,7 @@ fun WorkoutLogCard(
                         painter = painterResource(id = iconResId),
                         contentDescription = "Workout Icon",
                         colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.secondary),
-                        modifier = Modifier.size(50.dp)
+                        modifier = Modifier.size(55.dp)
                     )
                 }
                 Column(modifier = Modifier.widthIn(min = 225.dp, max = 225.dp)) {
@@ -1147,21 +1103,14 @@ fun WorkoutLogCard(
                         text = log.date,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.secondary
                     )
 
                     Text(
                         text = log.name,
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
-                        color = getTypeColor(log.type)
-                    )
-
-                    Text(
-                        text = log.difficulty,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = getDifficultyColor(log.difficulty)
+                        color = MaterialTheme.colorScheme.primary
                     )
 
                     if (log.sets.isNotBlank()) {
@@ -1379,43 +1328,6 @@ fun isValidDistance(
         return Pair(false, "Distance cannot be blank")
     }
     return Pair(true, "")
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DropdownMenu(
-    expanded: Boolean,
-    onExpandedChange: (Boolean) -> Unit,
-    newWorkoutType: String,
-    onNewWorkoutTypeChange: (String) -> Unit
-) {
-    val workoutTypes = arrayOf("cardio", "olympic_weightlifting", "plyometrics", "powerlifting", "strength", "stretching", "strongman")
-
-    Column {
-        TextField(
-            value = newWorkoutType,
-            onValueChange = { onNewWorkoutTypeChange(it) },
-            label = { Text("Workout Type") },
-            trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = "Dropdown") },
-            readOnly = true,
-            modifier = Modifier.clickable { onExpandedChange(true) }
-        )
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { onExpandedChange(false) }
-        ) {
-            workoutTypes.forEach { type ->
-                DropdownMenuItem(
-                    onClick = {
-                        onNewWorkoutTypeChange(type)
-                        onExpandedChange(false)
-                    },
-                    text = { Text(type) },
-                )
-            }
-        }
-    }
 }
 
 

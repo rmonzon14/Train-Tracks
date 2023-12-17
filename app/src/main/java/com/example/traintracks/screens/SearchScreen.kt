@@ -11,12 +11,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -25,6 +27,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -40,13 +43,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -59,6 +65,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.traintracks.R
 import com.example.traintracks.SearchApiService
+import com.example.traintracks.SearchResult
+import com.example.traintracks.Workout
 import com.example.traintracks.ui.theme.TrainTracksTheme
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
@@ -68,11 +76,16 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.Locale
+
 
 class SearchScreen : ComponentActivity() {
 
@@ -125,15 +138,21 @@ fun Search(
     }
     Column(
         Modifier
-            .padding(24.dp)
+            .padding(start = 24.dp, end = 24.dp, bottom = 24.dp)
             .fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(12.dp, alignment = Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
 
         TopAppBar(
+            modifier = Modifier.alpha(0.7f),
             title = {
-                Text(text = "Go Back")
+                Text(
+                    text = "Workout Search",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
             },
             navigationIcon = {
                 IconButton(
@@ -150,12 +169,6 @@ fun Search(
             }
         )
 
-        Text(
-            text = "Workout Search",
-            color = Color.White,
-            fontSize = 30.sp,
-            fontWeight = FontWeight.ExtraBold
-        )
         WorkoutNameField(
             value = workoutName,
             onChange = { workoutName = it },
@@ -187,7 +200,7 @@ fun Search(
             Text(
                 text = "Search",
                 fontSize = 20.sp,
-                color = Color.White
+                color = MaterialTheme.colorScheme.background
             )
         }
     }
@@ -262,7 +275,7 @@ fun WorkoutTypeField(
             }
         ) {
             TextField(
-                value = selectedText,
+                value = selectedText.toTitleCase(),
                 onValueChange = { },
                 readOnly = true,
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
@@ -270,13 +283,14 @@ fun WorkoutTypeField(
                 modifier = Modifier.menuAnchor()
             )
 
+
             ExposedDropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false }
             ) {
                 workoutType.forEach { item ->
                     DropdownMenuItem(
-                        text = { Text(text = item) },
+                        text = { Text(text = item.toTitleCase()) },
                         onClick = {
                             selectedText = item
                             expanded = false
@@ -327,7 +341,7 @@ fun MuscleGroupField(
             }
         ) {
             TextField(
-                value = selectedText,
+                value = selectedText.toTitleCase(),
                 onValueChange = {},
                 readOnly = true,
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
@@ -343,7 +357,7 @@ fun MuscleGroupField(
             ) {
                 muscle.forEach { item ->
                     DropdownMenuItem(
-                        text = { Text(text = item) },
+                        text = { Text(text = item.toTitleCase()) },
                         onClick = {
                             selectedText = item
                             expanded = false
@@ -378,7 +392,7 @@ fun DifficultyField(
             }
         ) {
             TextField(
-                value = selectedText,
+                value = selectedText.toTitleCase(),
                 onValueChange = {},
                 readOnly = true,
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
@@ -392,7 +406,7 @@ fun DifficultyField(
             ) {
                 difficulty.forEach { item ->
                     DropdownMenuItem(
-                        text = { Text(text = item) },
+                        text = { Text(text = item.toTitleCase()) },
                         onClick = {
                             selectedText = item
                             expanded = false
@@ -407,69 +421,94 @@ fun DifficultyField(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Results(searchResults: List<com.example.traintracks.SearchResult>) {
+fun Results(searchResults: List<com.example.traintracks.SearchResult>, snackbarHostState: SnackbarHostState) {
     val currentContext = LocalContext.current
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        TopAppBar(
-            title = {
-                Text(text = "Go Home")
-            },
-            navigationIcon = {
-                IconButton(
-                    onClick = {
-                        val intent = Intent(currentContext, MainActivity::class.java)
-                        currentContext.startActivity(intent)
+        Column{
+            TopAppBar(
+                title = {
+                    Row{
+                        Text(
+                            text = "Search Results",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
                     }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back"
-                    )
+                },
+                navigationIcon = {
+                    IconButton(
+                        onClick = {
+                            val intent = Intent(currentContext, SearchScreen::class.java)
+                            currentContext.startActivity(intent)
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            modifier = Modifier.size(35.dp)
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(
+                        onClick = {
+                            val intent = Intent(currentContext, MainActivity::class.java)
+                            currentContext.startActivity(intent)
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Home,
+                            contentDescription = "Back",
+                            modifier = Modifier.size(35.dp)
+                        )
+                    }
                 }
-            }
-        )
-        Text(
-            text = "Results Screen",
-            fontSize = 30.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.Black,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-        Text(
-            text = "Click on workout items for more details.",
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.Black,
-            modifier = Modifier.padding(top=16.dp, bottom = 16.dp)
-        )
-
-        if (searchResults.isNotEmpty()) {
-            // Display search results
-            searchResults.forEach { result ->
-                SearchResultItem(result = result)
-            }
-        } else {
-            // Display a message when there are no search results
-            Text(
-                text = "No results found",
-                fontSize = 20.sp,
-                color = Color.White,
-                modifier = Modifier.fillMaxWidth()
             )
+
+        }
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Text(
+                text = "Tap workouts for more details.",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.padding(top=16.dp, bottom = 16.dp)
+            )
+
+            if (searchResults.isNotEmpty()) {
+                // Display search results
+                searchResults.forEach { result ->
+                    SearchResultItem(result = result, snackbarHostState = snackbarHostState) // Pass snackbarHostState to SearchResultItem
+                }
+            } else {
+                // Display a message when there are no search results
+                Text(
+                    text = "No results found",
+                    fontSize = 20.sp,
+                    color = Color.White,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }
 @Composable
-fun SearchResultItem(result: com.example.traintracks.SearchResult) {
+fun SearchResultItem(result: com.example.traintracks.SearchResult, snackbarHostState: SnackbarHostState) {
     val auth = Firebase.auth
     val currentUser = auth.currentUser
     var isAddedToDatabase by remember { mutableStateOf(false) }
+    var firebaseId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(result) {
         val userId = currentUser?.uid
@@ -477,14 +516,16 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
             val db = FirebaseDatabase.getInstance().getReference("users/$userId/workouts")
             db.addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
-                    if (snapshot.children.any { it.child("name").value == result.name }) {
-                        isAddedToDatabase = true
+                    snapshot.children.forEach { dataSnapshot ->
+                        val workout = dataSnapshot.getValue(Workout::class.java)
+                        if (workout?.name == result.name) {
+                            isAddedToDatabase = true
+                            firebaseId = dataSnapshot.key // Store the Firebase ID
+                            return
+                        }
                     }
                 }
-
-                override fun onCancelled(error: DatabaseError) {
-                    // Handle error
-                }
+                override fun onCancelled(error: DatabaseError) {}
             })
         }
     }
@@ -495,7 +536,6 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp)
-            .background(color = Color.DarkGray)
             .clickable { expanded = !expanded },
         shape = RoundedCornerShape(8.dp)
     ) {
@@ -504,50 +544,111 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            val iconResId = when (result.type) {
-                "cardio" -> R.drawable.icon_cardio
-                "olympic_weightlifting" -> R.drawable.icon_olympic_weighlifting
-                "plyometrics" -> R.drawable.icon_plyometrics
-                "powerlifting" -> R.drawable.icon_powerlifting
-                "strength" -> R.drawable.icon_strength
-                "stretching" -> R.drawable.icon_stretching
-                "strongman" -> R.drawable.icon_strongman
-                else -> R.drawable.icon_strongman
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ){
+                val iconResId = when (result.type) {
+                    "cardio" -> R.drawable.icon_cardio
+                    "olympic_weightlifting" -> R.drawable.icon_olympic_weighlifting
+                    "plyometrics" -> R.drawable.icon_plyometrics
+                    "powerlifting" -> R.drawable.icon_powerlifting
+                    "strength" -> R.drawable.muscle_bicep
+                    "stretching" -> R.drawable.icon_stretching
+                    "strongman" -> R.drawable.icon_strongman
+                    else -> R.drawable.icon_strongman
+                }
+
+                Image(
+                    painter = painterResource(id = iconResId),
+                    contentDescription = "Workout Icon",
+                    modifier = Modifier.size(48.dp),
+                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.secondary)
+                )
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                val difficultyIconResId = when (result.difficulty) {
+                    difficulties[0] -> R.drawable.easy
+                    difficulties[1] -> R.drawable.medium
+                    difficulties[2] -> R.drawable.hard
+                    else -> R.drawable.emh
+                }
+
+                Image(
+                    painter = painterResource(id = difficultyIconResId),
+                    contentDescription = "Difficulty Icon",
+                    modifier = Modifier.size(52.dp)
+                )
+
+                // Spacer with weight will push the remaining items to the end of the Row
+                Spacer(modifier = Modifier.weight(1f))
+
+                // Heart icon
+                if (!isAddedToDatabase) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.heart_open),
+                        contentDescription = "Add to Favourites",
+                        modifier = Modifier
+                            .size(30.dp)
+                            .padding(1.dp)
+                            .clickable {
+                                addToFirebaseDatabase(result, snackbarHostState)
+                                isAddedToDatabase = true
+                            }
+                    )
+                } else {
+                    Icon(
+                        painter = painterResource(id = R.drawable.heart_closed),
+                        contentDescription = "Remove from Favourites",
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clickable {
+                                val id = firebaseId
+                                if (id != null) {
+                                    deleteFromFirebaseDatabase(id, snackbarHostState)
+                                    isAddedToDatabase = false
+                                } else {
+                                    // Handle the case where firebaseId is null
+                                    CoroutineScope(Dispatchers.Main).launch {
+                                        snackbarHostState.showSnackbar("Error: Unable to remove workout")
+                                    }
+                                }
+                            }
+                    )
+                }
+
             }
-            Image(
-                painter = painterResource(id = iconResId),
-                contentDescription = "Workout Icon",
-                modifier = Modifier.size(30.dp)
-            )
+
             Text(
                 text = result.name,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black
+                color = MaterialTheme.colorScheme.primary
             )
 
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = result.type,
+                text = result.type.toTitleCase(),
                 fontSize = 18.sp,
-                color = Color.Blue
+                color = getTypeColor(result.type),
             )
 
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "Difficulty: ${result.difficulty}",
+                text = "Difficulty: ${result.difficulty.toTitleCase()}",
                 fontSize = 18.sp,
-                color = Color.Red
+                color = MaterialTheme.colorScheme.primary
             )
 
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "Muscle Group: ${result.muscle}",
+                text = "Muscle Group: ${result.muscle.toTitleCase()}",
                 fontSize = 18.sp,
-                color = Color.Black
+                color = MaterialTheme.colorScheme.secondary
             )
 
             // Expandable section for Equipment and Instructions
@@ -557,7 +658,7 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
                 Text(
                     text = "Equipment: ${result.equipment}",
                     fontSize = 18.sp,
-                    color = Color.Black
+                    color = MaterialTheme.colorScheme.primary
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
@@ -565,64 +666,57 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult) {
                 Text(
                     text = "Instructions: ${result.instructions}",
                     fontSize = 18.sp,
-                    color = Color.Black
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (!isAddedToDatabase) {
-                Button(
-                    onClick = {
-                        addToFirebaseDatabase(result)
-                        isAddedToDatabase = true
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.secondary
-                    )
-                ) {
-                    Text(
-                        text = "Add to Workouts",
-                        fontSize = 16.sp,
-                        color = Color.Black
-                    )
-                }
-            } else {
-                Text(
-                    text = "Workout Already Saved",
-                    fontSize = 16.sp,
-                    color = Color.Red,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp)
+                    color = MaterialTheme.colorScheme.secondary
                 )
             }
         }
     }
 }
 
-private fun addToFirebaseDatabase(result: com.example.traintracks.SearchResult) {
-
+private fun addToFirebaseDatabase(result: SearchResult, snackbarHostState: SnackbarHostState) {
     val auth = Firebase.auth
     val currentUser = auth.currentUser
 
     if (currentUser != null) {
         val userId = currentUser.uid
+        val dbRef = FirebaseDatabase.getInstance().getReference("users/$userId/workouts")
 
-        // Push a new entry and capture the generated unique key
-        val db = FirebaseDatabase.getInstance().getReference("users/$userId/workouts").push()
-        val key = db.key ?: return // Return if key is null
+        val key = dbRef.push().key ?: return // Generate a new key for new entries
 
-        // Include the key in the workout data
-        val workoutData = result.toMap(key)
-
-        db.setValue(workoutData)
+        val workoutData = result.toWorkoutMap(key)
+        dbRef.child(key).setValue(workoutData).addOnSuccessListener {
+            CoroutineScope(Dispatchers.Main).launch {
+                snackbarHostState.showSnackbar("Workout added to favourites")
+            }
+        }.addOnFailureListener { e ->
+            CoroutineScope(Dispatchers.Main).launch {
+                snackbarHostState.showSnackbar(e.message ?: "Failed to save workout")
+            }
+        }
     }
 }
+
+
+private fun deleteFromFirebaseDatabase(firebaseId: String, snackbarHostState: SnackbarHostState) {
+    val auth = Firebase.auth
+    val currentUser = auth.currentUser
+
+    if (currentUser != null && firebaseId != null) {
+        val userId = currentUser.uid
+        val dbRef = FirebaseDatabase.getInstance().getReference("users/$userId/workouts")
+
+        dbRef.child(firebaseId).removeValue().addOnSuccessListener {
+            CoroutineScope(Dispatchers.Main).launch {
+                snackbarHostState.showSnackbar("Workout successfully removed")
+            }
+        }.addOnFailureListener { e ->
+            CoroutineScope(Dispatchers.Main).launch {
+                snackbarHostState.showSnackbar(e.message ?: "Failed to remove workout")
+            }
+        }
+    }
+}
+
 
 fun com.example.traintracks.SearchResult.toMap(id: String): Map<String, Any?> {
     return mapOf(
@@ -636,16 +730,16 @@ fun com.example.traintracks.SearchResult.toMap(id: String): Map<String, Any?> {
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, DelicateCoroutinesApi::class)
 @Preview
 @Composable
 fun SearchScreenContent() {
+    val snackbarHostState = remember { SnackbarHostState() }
     var searchClicked by remember { mutableStateOf(false) }
-    val currentContext = LocalContext.current
     var searchResults by remember { mutableStateOf<List<com.example.traintracks.SearchResult>>(emptyList()) }
 
     if (searchClicked) {
-        Results(searchResults)
+        Results(searchResults, snackbarHostState) // Pass snackbarHostState to Results
     } else {
             Search { workoutName, workoutType, muscleGroup, difficulty ->
             val retrofit = Retrofit.Builder()
@@ -685,5 +779,54 @@ fun SearchScreenContent() {
             searchClicked = true
         }
     }
+
+    SnackbarHost(hostState = snackbarHostState)
 }
+
+@Composable
+fun getDifficultyColor(difficulty: String): Color {
+    val darkGreen = Color(0xFF006400)
+    val darkOrange = Color(0xFFCC8400)
+    val darkRed = Color(0xFFCD5C5C)
+    return when (difficulty) {
+        "beginner" -> darkGreen
+        "intermediate" -> darkOrange
+        "expert" -> darkRed
+        else -> MaterialTheme.colorScheme.secondary
+    }
+}
+
+@Composable
+fun getTypeColor(type: String): Color {
+    return when (type) {
+        "cardio" -> Color(0xFFC91212)
+        "olympic_weightlifting" -> Color(0xFFFF8F00)
+        "plyometrics" -> Color(0xFFF124AA)
+        "powerlifting" -> Color(0xFF1D28A2)
+        "strength" -> Color(0xFF9C27B0)
+        "stretching" -> Color(0xFF008B8B)
+        "strongman" -> Color(0xFF9B6857)
+        else -> MaterialTheme.colorScheme.secondary
+    }
+}
+
+fun String.toTitleCase(): String {
+    return this.split('_')
+        .joinToString(" ") { word ->
+            word.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+        }
+}
+
+fun SearchResult.toWorkoutMap(id: String): Map<String, Any?> {
+    return mapOf(
+        "id" to id,
+        "name" to name,
+        "type" to type,
+        "difficulty" to difficulty,
+        "muscle" to muscle,
+        "equipment" to equipment,
+        "instructions" to instructions
+    )
+}
+
 
