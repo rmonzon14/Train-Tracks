@@ -59,13 +59,11 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import com.example.traintracks.R
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 
 class LoginScreen : ComponentActivity() {
 
-    private lateinit var auth: FirebaseAuth
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -160,7 +158,7 @@ fun Login(
             Text(
                 text = "Login",
                 fontSize = 20.sp,
-                color = Color.Black
+                color = Color.White
             )
         }
 
@@ -215,7 +213,7 @@ fun PasswordSection(
     onChange: (String) -> Unit,
     submit: () -> Unit,
 ) {
-    var isPasswordVisible by remember { mutableStateOf(false) }
+    val isPasswordVisible by remember { mutableStateOf(false) }
 
     TextField(
         value = value,
@@ -286,8 +284,8 @@ fun AnnotatedClickableTextLogin() {
 fun DisplayLoginScreen() {
     var isLoggedIn by remember { mutableStateOf(false) }
 
-    var auth = Firebase.auth
-    var currentUser = auth.currentUser
+    val auth = Firebase.auth
+    val currentUser = auth.currentUser
 
     val currentContext = LocalContext.current
 
@@ -307,9 +305,9 @@ fun DisplayLoginScreen() {
 
                 else -> {
                     auth.signInWithEmailAndPassword(email, password)
-                        .addOnCompleteListener() { task ->
+                        .addOnCompleteListener { task ->
                             if (task.isSuccessful) {
-                                isLoggedIn = true;
+                                isLoggedIn = true
                             } else {
                                 Log.i("Check_Point", "signInWithEmail:failure", task.exception)
                             }

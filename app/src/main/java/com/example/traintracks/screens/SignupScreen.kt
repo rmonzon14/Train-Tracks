@@ -147,7 +147,7 @@ fun SignUp(
             Text(
                 text = "SignUp",
                 fontSize = 20.sp,
-                color = Color.Black
+                color = Color.White
             )
         }
 

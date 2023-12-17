@@ -1,9 +1,12 @@
 package com.example.traintracks.screens
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,13 +39,20 @@ import com.example.traintracks.WorkoutLog
 import com.google.firebase.auth.auth
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import com.example.traintracks.R
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
 private lateinit var db: DatabaseReference
 
+@SuppressLint("SuspiciousIndentation")
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -72,6 +82,9 @@ fun WorkoutScreen() {
     var showConfirmationMessage by remember { mutableStateOf(false) }
     var showErrorSnackbar by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+    var selectedWorkouts by remember { mutableStateOf<Set<String>>(setOf()) }
+    var showDeleteConfirmationDialog by remember { mutableStateOf(false) }
+
 
     db.addValueEventListener(object : ValueEventListener {
         override fun onDataChange(snapshot: DataSnapshot) {
@@ -86,6 +99,7 @@ fun WorkoutScreen() {
         }
     })
 
+    @Composable
     fun getDifficultyColor(difficulty: String): Color {
         val darkGreen = Color(0xFF006400)
         val darkOrange = Color(0xFFCC8400)
@@ -94,22 +108,62 @@ fun WorkoutScreen() {
             "beginner" -> darkGreen
             "intermediate" -> darkOrange
             "expert" -> darkRed
-            else -> Color.Gray
+            else -> MaterialTheme.colorScheme.secondary
         }
     }
 
+    @Composable
     fun getTypeColor(type: String): Color {
         return when (type) {
-            "cardio" -> Color(0xFF800000) // Silver
-            "olympic_weightlifting" -> Color(0xFFFF8F00) // Amber
-            "plyometrics" -> Color(0xFFF124AA) // Magenta
-            "powerlifting" -> Color(0xFF1A237E) // Deep Blue
-            "strength" -> Color(0xFF9C27B0) // Deep Purple
-            "stretching" -> Color(0xFF008B8B) // Teal
-            "strongman" -> Color(0xFF6D4C41) // Brown
-            else -> Color.Gray
+            "cardio" -> Color(0xFFC91212)
+            "olympic_weightlifting" -> Color(0xFFFF8F00)
+            "plyometrics" -> Color(0xFFF124AA)
+            "powerlifting" -> Color(0xFF1D28A2)
+            "strength" -> Color(0xFF9C27B0)
+            "stretching" -> Color(0xFF008B8B)
+            "strongman" -> Color(0xFF9B6857)
+            else -> MaterialTheme.colorScheme.secondary
         }
     }
+
+    @Composable
+    fun CustomAppBar(
+        onDeleteClick: () -> Unit,
+        isAnyWorkoutSelected: Boolean
+    ) {
+        TopAppBar(
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ){
+                    Text(
+                        text = "Favourite Workouts",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
+                    },
+            navigationIcon = {
+                if (isAnyWorkoutSelected) {
+                    IconButton(
+                        onClick = onDeleteClick
+                    ) {
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = "Delete Selected Workouts",
+                            modifier = Modifier.size(70.dp)
+                        )
+                    }
+                }
+            },
+            actions = {
+            }
+        )
+    }
+
 
     fun isValidDuration(duration: String): Boolean {
         // Regex to check if duration is in the format HH:MM:SS, allowing hours to exceed 23
@@ -229,16 +283,77 @@ fun WorkoutScreen() {
                     deleteWorkout(workoutToDeleteIndex)
                     showDialog = false
                 }) {
-                    Text("Confirm")
+                    Text(
+                        "Confirm",
+                        color = MaterialTheme.colorScheme.surface
+                    )
                 }
             },
             dismissButton = {
                 Button(onClick = { showDialog = false }) {
-                    Text("Cancel")
+                    Text(
+                        "Cancel",
+                        color = MaterialTheme.colorScheme.surface
+                    )
                 }
             }
         )
     }
+
+    // Delete confirmation doalog for selected items.
+    if (showDeleteConfirmationDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmationDialog = false },
+            title = { Text(
+                "Confirm Deletion",
+                color = MaterialTheme.colorScheme.primary
+            )
+
+                    },
+            text = { Text("Are you sure you want to delete the selected workouts?") },
+            confirmButton = {
+                Button(onClick = {
+                    // Deletion logic for selected workouts
+                    selectedWorkouts.forEach { workoutId ->
+                        db.child(workoutId).removeValue().addOnSuccessListener {
+                            // Update the UI here if necessary
+                        }.addOnFailureListener {
+                            // Handle any errors
+                            errorMessage = "Error deleting workout: ${it.message}"
+                        }
+                    }
+                    // After deletion, refresh the workout list
+                    db.addListenerForSingleValueEvent(object : ValueEventListener {
+                        override fun onDataChange(snapshot: DataSnapshot) {
+                            workoutList = snapshot.children.mapNotNull { it.getValue(Workout::class.java) }.asReversed()
+                        }
+
+                        override fun onCancelled(error: DatabaseError) {
+                            // Handle error
+                        }
+                    })
+                    // Reset states after deletion
+                    selectedWorkouts = setOf()
+                    showDeleteConfirmationDialog = false
+                    showConfirmationMessage = true  // Set the confirmation message to true
+                }) {
+                    Text(
+                        "Confirm",
+                        color = MaterialTheme.colorScheme.surface
+                    )
+                }
+            },
+            dismissButton = {
+                Button(onClick = { showDeleteConfirmationDialog = false }) {
+                    Text(
+                        "Cancel",
+                        color = MaterialTheme.colorScheme.surface
+                    )
+                }
+            }
+        )
+    }
+
 
     // Full-screen dialog for displaying selected workout details
     if (showFullScreenDialog && selectedWorkout != null) {
@@ -247,208 +362,274 @@ fun WorkoutScreen() {
             properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
             Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.background
+                modifier = Modifier
+                    .fillMaxSize(),
+                color = MaterialTheme.colorScheme.surface
             ) {
-                val scrollState = rememberScrollState()
-
-                Column(
-                    modifier = Modifier
-                        .padding(start = 20.dp, end = 20.dp, bottom = 20.dp)
-                        .verticalScroll(scrollState),
-                ) {
-                    if (showConfirmationMessage) {
-                        Snackbar(
-                            action = {
-                                TextButton(onClick = {
-                                    showConfirmationMessage = false
-                                }) {
-                                    Text("OK")
-                                }
-                            },
-                            modifier = Modifier.padding(8.dp)
-                        ) {
-                            Text("Workout logged successfully")
-                        }
-                    }
-
-                    if (showErrorSnackbar) {
-                        Snackbar(
-                            action = {
-                                TextButton(onClick = { showErrorSnackbar = false }) {
-                                    Text("OK")
-                                }
-                            },
-                            modifier = Modifier.padding(8.dp)
-                        ) {
-                            Text(errorMessage)
-                        }
-                    }
-                    IconButton(
-                        onClick = {
-                            showFullScreenDialog = false
-                            showConfirmationMessage = false
-                            showErrorSnackbar = false
-                        },
-                        modifier = Modifier.align(Alignment.End)
-                    ) {
-                        Icon(Icons.Default.Close, contentDescription = "Close")
-                    }
-
+                Column {
                     selectedWorkout?.let { workout ->
-                        val iconResId = when (workout.type) {
-                            "cardio" -> icon_cardio
-                            "olympic_weightlifting" -> icon_olympic_weighlifting
-                            "plyometrics" -> icon_plyometrics
-                            "powerlifting" -> icon_powerlifting
-                            "strength" -> icon_strength
-                            "stretching" -> icon_stretching
-                            "strongman" -> icon_strongman
-                            else -> icon_strongman
-                        }
-                        Image(
-                            painter = painterResource(id = iconResId),
-                            contentDescription = "Workout Icon",
-                            modifier = Modifier.size(50.dp)
-                        )
-
-                        Text(
-                            text = workout.name,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        Text(
-                            text = "Type: ${workout.type}",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = getTypeColor(workout.type)
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Text(
-                            text = "Difficulty: ${workout.difficulty}",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = getDifficultyColor(workout.difficulty)
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Text(
-                            text = "Muscle Group: ${workout.muscle}",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Text(
-                            text = "Equipment: ${workout.equipment}",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Text(
-                            text = "Instructions: ${workout.instructions}",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Text(
-                            text = "Delete Saved Workout",
-                            modifier = Modifier
-                                .padding(top = 8.dp)
-                                .clickable {
-                                    workoutToDeleteIndex = workoutList.indexOf(workout)
-                                    showDialog = true
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                    ){
+                        if (showConfirmationMessage) {
+                            showErrorSnackbar = false
+                            Snackbar(
+                                action = {
+                                    TextButton(onClick = {
+                                        showConfirmationMessage = false
+                                    }) {
+                                        Text("OK")
+                                    }
                                 },
-                            color = MaterialTheme.colorScheme.error,
-                            fontSize = 20.sp,
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Button(onClick = { showLogWorkoutDialog = true }) {
-                            Text("Log Workout")
+                                modifier = Modifier.padding(8.dp)
+                            ) {
+                                Text("Workout logged successfully")
+                            }
                         }
 
-                        if (showLogWorkoutDialog) {
-                            Dialog(onDismissRequest = { showLogWorkoutDialog = false }) {
-                                Surface(
+                        if (showErrorSnackbar) {
+                            showConfirmationMessage = false
+                            Snackbar(
+                                action = {
+                                    TextButton(onClick = { showErrorSnackbar = false }) {
+                                        Text("OK")
+                                    }
+                                },
+                                modifier = Modifier.padding(8.dp)
+                            ) {
+                                Text(errorMessage)
+                            }
+                        }
+                        TopAppBar(
+                            title = {
+                                Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.surface,
-                                    contentColor = MaterialTheme.colorScheme.onSurface
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
                                 ) {
-                                    Column(modifier = Modifier
-                                        .padding(16.dp)
-                                        .fillMaxWidth()) {
-                                        if (showConfirmationMessage) {
-                                            Snackbar(
-                                                action = {
-                                                    TextButton(onClick = { showConfirmationMessage = false }) {
-                                                        Text("OK")
-                                                    }
-                                                },
-                                                modifier = Modifier.padding(8.dp)
-                                            ) {
-                                                Text("Workout logged successfully")
-                                            }
-                                        }
-                                        if (workout.type in listOf("cardio", "stretching")) {
-                                            OutlinedTextField(
-                                                value = workoutDuration,
-                                                onValueChange = { workoutDuration = it },
-                                                label = { Text("Duration (hh:mm:ss)") }
+
+                                    Text(
+                                        text = workout.name,
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        textAlign = TextAlign.Center
+                                    )
+
+                                }
+                            },
+                            navigationIcon = {
+                                val iconResId = when (workout.type) {
+                                    "cardio" -> R.drawable.icon_cardio
+                                    "olympic_weightlifting" -> R.drawable.icon_olympic_weighlifting
+                                    "plyometrics" -> R.drawable.icon_plyometrics
+                                    "powerlifting" -> R.drawable.icon_powerlifting
+                                    "strength" -> R.drawable.strength
+                                    "stretching" -> R.drawable.icon_stretching
+                                    "strongman" -> R.drawable.icon_strongman
+                                    else -> R.drawable.icon_strongman
+                                }
+                                Image(
+                                    painter = painterResource(id = iconResId),
+                                    contentDescription = "Workout Icon",
+                                    colorFilter = ColorFilter.tint(
+                                        MaterialTheme.colorScheme.primary
+                                        ),
+                                    modifier = Modifier
+                                        .size(60.dp)
+                                )
+                            },
+                            actions = {
+                                IconButton(
+                                    onClick = {
+                                        showFullScreenDialog = false
+                                        showConfirmationMessage = false
+                                        showErrorSnackbar = false
+                                    },
+                                ) {
+                                    Icon(Icons.Default.Close, contentDescription = "Close")
+                                }
+                            },
+                            modifier = Modifier
+                                .padding(20.dp)
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .padding(start = 20.dp, end = 20.dp, bottom = 20.dp)
+                    ){
+                        val scrollState = rememberScrollState()
+
+                            Column(
+                                modifier = Modifier
+                                    .verticalScroll(scrollState)
+                                    .weight(1f),
+                            ){
+                                val difficultyIconResId = when (workout.difficulty) {
+                                    difficulties[0] -> R.drawable.easy
+                                    difficulties[1] -> R.drawable.medium
+                                    difficulties[2] -> R.drawable.hard
+                                    else -> R.drawable.emh
+                                }
+
+                                Image(
+                                    painter = painterResource(difficultyIconResId),
+                                    contentDescription = "Difficulty Icon",
+                                    colorFilter = ColorFilter.tint(
+                                        com.example.traintracks.screens.getDifficultyColor(
+                                            workout.difficulty
+                                        )
+                                    ),
+                                    modifier = Modifier.size(50.dp)
+                                )
+
+                                Text(
+                                    text = "${workout.type}",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = getTypeColor(workout.type)
+                                )
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                Text(
+                                    text = "Difficulty: ${workout.difficulty}",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                Text(
+                                    text = "Muscle Group: ${workout.muscle}",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                )
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                Text(
+                                    text = "Equipment: ${workout.equipment}",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                )
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                Text(
+                                    text = "Instructions: ${workout.instructions}",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                )
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth()
+                            ){
+
+                                Icon(
+                                    painter = painterResource(id = R.drawable.delete_note),
+                                    contentDescription = "Delete Saved Workout",
+                                    modifier = Modifier
+                                        .size(50.dp)
+                                        .padding(5.dp)
+                                        .clickable {
+                                            workoutToDeleteIndex = workoutList.indexOf(workout)
+                                            showDialog = true
+                                        },
+                                    tint = MaterialTheme.colorScheme.error,
+                                )
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                Icon(
+                                    painter = painterResource(id = R.drawable.workout),
+                                    contentDescription = "Log Workout",
+                                    modifier = Modifier
+                                        .size(50.dp)
+                                        .padding(5.dp)
+                                        .clickable {
+                                            showLogWorkoutDialog = true
+                                        },
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            }
+
+                            if (showLogWorkoutDialog) {
+                                Dialog(onDismissRequest = { showLogWorkoutDialog = false }) {
+                                    Surface(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .border(
+                                                width = 2.dp,
+                                                color = MaterialTheme.colorScheme.secondary,
+                                                shape = RoundedCornerShape(8.dp)
                                             )
-                                            if (workout.type == "cardio") {
+                                            .alpha(0.96f),
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.surface,
+                                        contentColor = MaterialTheme.colorScheme.secondary,
+                                    ) {
+                                        Column(modifier = Modifier
+                                            .padding(16.dp)
+                                            .fillMaxWidth()) {
+                                            if (workout.type in listOf("cardio", "stretching")) {
                                                 OutlinedTextField(
-                                                    value = workoutDistance,
-                                                    onValueChange = { workoutDistance = it },
-                                                    label = { Text("Distance (optional)") }
+                                                    value = workoutDuration,
+                                                    onValueChange = { workoutDuration = it },
+                                                    label = { Text("Duration (hh:mm:ss)") }
+                                                )
+                                                if (workout.type == "cardio") {
+                                                    OutlinedTextField(
+                                                        value = workoutDistance,
+                                                        onValueChange = { workoutDistance = it },
+                                                        label = { Text("Distance (optional)") }
+                                                    )
+                                                }
+                                            } else if (workout.type in listOf(
+                                                    "olympic_weightlifting",
+                                                    "plyometrics",
+                                                    "powerlifting",
+                                                    "strength",
+                                                    "strongman"
+                                                )
+                                            ) {
+                                                OutlinedTextField(
+                                                    value = workoutSets,
+                                                    onValueChange = { workoutSets = it },
+                                                    label = { Text("Sets") }
+
+
+                                                )
+                                                OutlinedTextField(
+                                                    value = workoutReps,
+                                                    onValueChange = { workoutReps = it },
+                                                    label = { Text("Reps") }
                                                 )
                                             }
-                                        } else if (workout.type in listOf(
-                                                "olympic_weightlifting",
-                                                "plyometrics",
-                                                "powerlifting",
-                                                "strength",
-                                                "strongman"
-                                            )
-                                        ) {
                                             OutlinedTextField(
-                                                value = workoutSets,
-                                                onValueChange = { workoutSets = it },
-                                                label = { Text("Sets") }
-
-
+                                                value = workoutDate,
+                                                onValueChange = { workoutDate = it },
+                                                label = { Text("Date Completed") }
                                             )
-                                            OutlinedTextField(
-                                                value = workoutReps,
-                                                onValueChange = { workoutReps = it },
-                                                label = { Text("Reps") }
-                                            )
-                                        }
-                                        OutlinedTextField(
-                                            value = workoutDate,
-                                            onValueChange = { workoutDate = it },
-                                            label = { Text("Date Completed") }
-                                        )
-                                        Row {
-                                            Button(onClick = { saveWorkoutLog(workout) }) {
-                                                Text("Save")
-                                            }
-                                            Button(onClick = { showLogWorkoutDialog = false }) {
-                                                Text("Cancel")
+                                            Row {
+                                                Button(onClick = { saveWorkoutLog(workout) }) {
+                                                    Text(
+                                                        "Save",
+                                                        color = MaterialTheme.colorScheme.surface
+                                                    )
+                                                }
+                                                Button(onClick = { showLogWorkoutDialog = false }) {
+                                                    Text(
+                                                        "Cancel",
+                                                        color = MaterialTheme.colorScheme.surface
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -465,114 +646,233 @@ fun WorkoutScreen() {
         if(isLoading){
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         } else {
-            // Main content of the WorkoutScreen
-            if (workoutList.isEmpty()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(22.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text("No workouts found for your profile")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = {
-                            val intent = Intent(currentContext, SearchScreen::class.java)
-                            currentContext.startActivity(intent)
+            Column{
+                CustomAppBar(
+                    onDeleteClick = { showDeleteConfirmationDialog = true },
+                    isAnyWorkoutSelected = selectedWorkouts.isNotEmpty()
+                )
+                if (showConfirmationMessage && selectedWorkouts.isNotEmpty()) {
+                    Snackbar(
+                        action = {
+                            TextButton(onClick = {
+                                showConfirmationMessage = false
+                            }) {
+                                Text("OK")
+                            }
                         },
-                        shape = RoundedCornerShape(5.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.LightGray,
-                            contentColor = MaterialTheme.colorScheme.primary
-                        )
+                        modifier = Modifier.padding(8.dp)
                     ) {
-                        Text("Find Workouts")
+                        Text("Workout deleted successfully")
+                    }
+                } else if (showConfirmationMessage && selectedWorkouts.isEmpty()) {
+                    Snackbar(
+                        action = {
+                            TextButton(onClick = {
+                                showConfirmationMessage = false
+                            }) {
+                                Text("OK")
+                            }
+                        },
+                        modifier = Modifier.padding(8.dp)
+                    ) {
+                        Text("Selected Workouts Deleted Successfully")
                     }
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .padding(top = 24.dp, bottom = 85.dp)
-                        .fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    item {
-                        Text(
-                            text = "Saved Workouts",
-                            modifier = Modifier.padding(bottom = 16.dp),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
+
+                if (showErrorSnackbar) {
+                    showConfirmationMessage = false
+                    Snackbar(
+                        action = {
+                            TextButton(onClick = { showErrorSnackbar = false }) {
+                                Text("OK")
+                            }
+                        },
+                        modifier = Modifier.padding(8.dp)
+                    ) {
+                        Text(errorMessage)
                     }
-
-                    itemsIndexed(workoutList) { _, workout ->
-                        Card(
+                }
+                // Main content of the WorkoutScreen
+                if (workoutList.isEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(22.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text("No workouts found for your profile")
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = {
+                                val intent = Intent(currentContext, SearchScreen::class.java)
+                                currentContext.startActivity(intent)
+                            },
+                            shape = RoundedCornerShape(5.dp),
                             modifier = Modifier
-                                .clickable {
-                                    selectedWorkout = workout
-                                    showFullScreenDialog = true
-                                }
-                                .widthIn(min = 350.dp, max = 350.dp)
+                                .fillMaxWidth()
+                                .padding(8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = Color.White
+                            )
                         ) {
-                            Column(modifier = Modifier.padding(8.dp)){
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ){
-                                    Column(modifier = Modifier.width(60.dp)) {
-                                        val iconResId = when (workout.type) {
-                                            "cardio" -> icon_cardio
-                                            "olympic_weightlifting" -> icon_olympic_weighlifting
-                                            "plyometrics" -> icon_plyometrics
-                                            "powerlifting" -> icon_powerlifting
-                                            "strength" -> icon_strength
-                                            "stretching" -> icon_stretching
-                                            "strongman" -> icon_strongman
-                                            else -> icon_strongman
-                                        }
-                                        Image(
-                                            painter = painterResource(id = iconResId),
-                                            contentDescription = "Workout Icon",
-                                            modifier = Modifier
-                                                .size(60.dp)
-                                                .align(Alignment.CenterHorizontally)
-                                        )
+                            Text("Find Workouts")
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .padding(top = 24.dp, bottom = 85.dp)
+                            .fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        itemsIndexed(workoutList) { _, workout ->
+                            Card(
+                                modifier = Modifier
+                                    .clickable {
+                                        selectedWorkout = workout
+                                        showConfirmationMessage = false
+                                        showErrorSnackbar = false
+                                        showFullScreenDialog = true
                                     }
-                                    Column(modifier = Modifier.width(245.dp)) {
+                                    .widthIn(min = 390.dp, max = 390.dp)
+                                    .alpha(0.85f)
+                            ) {
+                                Column(modifier = Modifier.padding(8.dp)){
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ){
+                                        Column(modifier = Modifier.width(60.dp)) {
+                                            val iconResId = when (workout.type) {
+                                                "cardio" -> icon_cardio
+                                                "olympic_weightlifting" -> icon_olympic_weighlifting
+                                                "plyometrics" -> icon_plyometrics
+                                                "powerlifting" -> icon_powerlifting
+                                                "strength" -> strength
+                                                "stretching" -> icon_stretching
+                                                "strongman" -> icon_strongman
+                                                else -> icon_strongman
+                                            }
+                                            Image(
+                                                painter = painterResource(id = iconResId),
+                                                contentDescription = "Workout Icon",
+                                                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.secondary),
+                                                modifier = Modifier
+                                                    .size(60.dp)
+                                                    .align(Alignment.CenterHorizontally)
+                                            )
+                                        }
+                                        Column(modifier = Modifier.width(245.dp)) {
 
-                                        Text(
-                                            text = workout.name,
-                                            fontSize = 24.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.secondary,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                                            Text(
+                                                text = workout.name,
+                                                fontSize = 24.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
 
-                                        Spacer(modifier = Modifier.height(6.dp))
+                                            Spacer(modifier = Modifier.height(4.dp))
 
-                                        Text(
-                                            text = "Type: ${workout.type}",
-                                            fontSize = 18.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = getTypeColor(workout.type)
-                                        )
+                                            Text(
+                                                text = "${workout.muscle.lowercase().replaceFirstChar { it.uppercase() }}",
+                                                fontSize = 18.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.secondary
+                                            )
 
-                                        Spacer(modifier = Modifier.height(4.dp))
+                                            Spacer(modifier = Modifier.height(4.dp))
 
-                                        Text(
-                                            text = "Difficulty: ${workout.difficulty}",
-                                            fontSize = 18.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = getDifficultyColor(workout.difficulty)
-                                        )
+                                            val difficultyIconResId = when (workout.difficulty) {
+                                                difficulties[0] -> R.drawable.easy
+                                                difficulties[1] -> R.drawable.medium
+                                                difficulties[2] -> R.drawable.hard
+                                                else -> R.drawable.emh
+                                            }
+
+                                            Row{
+                                                Image(
+                                                    painter = painterResource(difficultyIconResId),
+                                                    contentDescription = "Difficulty Icon",
+                                                    colorFilter = ColorFilter.tint(
+                                                        com.example.traintracks.screens.getDifficultyColor(
+                                                            workout.difficulty
+                                                        )
+                                                    ),
+                                                    modifier = Modifier.size(50.dp)
+                                                )
+
+                                                val equipmentIconResId: Int? = when (workout.equipment) {
+                                                    "machine" -> equipment_machine
+                                                    "kettlebells" -> equipment_kettlebell
+                                                    "dumbbell" -> equipment_dumbbell
+                                                    "barbell" -> equipment_barbell
+                                                    else -> null
+                                                }
+                                                if (equipmentIconResId != null) {
+                                                    Image(
+                                                        painter = painterResource(equipmentIconResId),
+                                                        contentDescription = "Equipment Icon",
+                                                        colorFilter = ColorFilter.tint(
+                                                            MaterialTheme.colorScheme.primary
+                                                        ),
+                                                        modifier = Modifier.size(50.dp)
+                                                    )
+                                                } else {
+                                                    val workoutName = workout.name
+                                                    val iconResId = when {
+                                                        workoutName?.contains("treadmill", ignoreCase = true) == true -> equipment_treadmill
+                                                        workoutName?.contains("bicycling", ignoreCase = true) == true -> equipment_bicycle
+                                                        workoutName?.contains("skating", ignoreCase = true) == true -> equipment_skating
+                                                        workoutName?.contains("Jumping rope", ignoreCase = true) == true -> equipment_jumprope
+                                                        workoutName?.contains("Rickshaw", ignoreCase = true) == true -> equipment_rickshaw
+                                                        workoutName?.contains("Plate", ignoreCase = true) == true -> equipment_weightplate
+                                                        // Add more cases for other string matches here
+                                                        else -> null // Set iconResId to null when there's no match
+                                                    }
+
+                                                    if (iconResId != null) {
+                                                        Image(
+                                                            painter = painterResource(iconResId),
+                                                            contentDescription = "Equipment Icon",
+                                                            colorFilter = ColorFilter.tint(
+                                                                MaterialTheme.colorScheme.primary
+                                                            ),
+                                                            modifier = Modifier.size(50.dp)
+                                                        )
+                                                    } else {
+                                                        // Handle the case where there's no matching icon based on workout.name
+                                                        // Example:
+                                                        // Text("No Icon")
+                                                    }
+                                                }
+
+                                            }
+                                        }
+                                        Column {
+                                            Checkbox(
+                                                colors = CheckboxDefaults.colors(
+                                                    checkedColor = getDifficultyColor(workout.difficulty), // Color when the Checkbox is checked
+                                                    uncheckedColor = MaterialTheme.colorScheme.primary, // Color when the Checkbox is unchecked
+                                                    checkmarkColor = MaterialTheme.colorScheme.primary // Color of the checkmark
+                                                ),
+                                                checked = selectedWorkouts.contains(workout.id),
+                                                onCheckedChange = { isChecked ->
+                                                    val updatedSelection = selectedWorkouts.toMutableSet()
+                                                    if (isChecked) {
+                                                        updatedSelection.add(workout.id)
+                                                    } else {
+                                                        updatedSelection.remove(workout.id)
+                                                    }
+                                                    selectedWorkouts = updatedSelection
+                                                }
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -580,6 +880,7 @@ fun WorkoutScreen() {
                     }
                 }
             }
+
         }
     }
 }
