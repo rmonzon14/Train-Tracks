@@ -60,7 +60,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.traintracks.R
@@ -81,25 +80,39 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import retrofit2.HttpException
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.Locale
-
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 class SearchScreen : ComponentActivity() {
-
-    private lateinit var auth : FirebaseAuth
-    private lateinit var db  : DatabaseReference
+    private lateinit var sharedViewModel: SharedViewModel
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContent {
             TrainTracksTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    SearchScreenContent()
+                    // Initialize SharedViewModel
+                    val sharedViewModel: SharedViewModel = viewModel()
+
+                    // Initialize data in SharedViewModel
+                    val retrofit = Retrofit.Builder()
+                        .baseUrl("https://api.api-ninjas.com/v1/")
+                        .addConverterFactory(GsonConverterFactory.create())
+                        .build()
+                    val apiService = retrofit.create(SearchApiService::class.java)
+
+                    // Initialize data in SharedViewModel
+                    sharedViewModel.initializeData(apiService)
+
+                    SearchScreenContent(sharedViewModel)
                 }
             }
         }
@@ -109,12 +122,19 @@ class SearchScreen : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Search(
+    sharedViewModel: SharedViewModel,
     onSearchClicked: (String, String, String, String) -> Unit
 ) {
     var workoutName by remember { mutableStateOf("") }
     var workoutType by remember { mutableStateOf("") }
     var muscleGroup by remember { mutableStateOf("") }
     var difficulty by remember { mutableStateOf("") }
+
+    //Dropdown Data
+    val difficulties = sharedViewModel.difficulties.observeAsState().value
+    val types = sharedViewModel.types.observeAsState().value
+    val muscles = sharedViewModel.muscles.observeAsState().value
+
     val currentContext = LocalContext.current
 
     Box (
@@ -176,14 +196,17 @@ fun Search(
         WorkoutTypeField(
             value = workoutType,
             onChange = { workoutType = it },
+            types = types ?: arrayOf()
         )
         MuscleGroupField(
             value = muscleGroup,
             onChange = { muscleGroup = it },
+            muscles = muscles ?: arrayOf()
         )
         DifficultyField(
             value = difficulty,
             onChange = { difficulty = it },
+            difficulties = difficulties ?: arrayOf()
         )
         Button(
             onClick = { onSearchClicked(workoutName, workoutType, muscleGroup, difficulty) },
@@ -229,7 +252,6 @@ fun WorkoutNameField(
             .padding(8.dp),
         colors = TextFieldDefaults.textFieldColors(
             containerColor = Color.Transparent,
-            textColor = Color.White,
             cursorColor = MaterialTheme.colorScheme.primary,
             focusedIndicatorColor = MaterialTheme.colorScheme.primary,
             unfocusedIndicatorColor = MaterialTheme.colorScheme.primary
@@ -250,16 +272,9 @@ fun WorkoutNameField(
 @Composable
 fun WorkoutTypeField(
     value: String,
-    onChange: (String) -> Unit
+    onChange: (String) -> Unit,
+    types: Array<String>?
 ) {
-    val workoutType = arrayOf(
-            "cardio",
-            "olympic_weightlifting",
-            "plyometrics",
-            "powerlifting",
-            "strength",
-            "stretching",
-            "strongman")
     var expanded by remember { mutableStateOf(false) }
     var selectedText by remember { mutableStateOf(value) }
 
@@ -288,7 +303,7 @@ fun WorkoutTypeField(
                 expanded = expanded,
                 onDismissRequest = { expanded = false }
             ) {
-                workoutType.forEach { item ->
+                types?.forEach { item ->
                     DropdownMenuItem(
                         text = { Text(text = item.toTitleCase()) },
                         onClick = {
@@ -307,25 +322,9 @@ fun WorkoutTypeField(
 @Composable
 fun MuscleGroupField(
     value: String,
-    onChange: (String) -> Unit
+    onChange: (String) -> Unit,
+    muscles: Array<String>?
 ) {
-    val muscle = arrayOf(
-            "abdominals",
-            "abductors",
-            "adductors",
-            "biceps",
-            "calves",
-            "chest",
-            "forearms",
-            "glutes",
-            "hamstrings",
-            "lats",
-            "lower_back",
-            "middle_back",
-            "neck",
-            "quadriceps",
-            "traps",
-            "triceps")
     var expanded by remember { mutableStateOf(false) }
     var selectedText by remember { mutableStateOf(value) }
 
@@ -355,7 +354,7 @@ fun MuscleGroupField(
                     .verticalScroll(rememberScrollState())
 
             ) {
-                muscle.forEach { item ->
+                muscles?.forEach { item ->
                     DropdownMenuItem(
                         text = { Text(text = item.toTitleCase()) },
                         onClick = {
@@ -374,9 +373,10 @@ fun MuscleGroupField(
 @Composable
 fun DifficultyField(
     value: String,
-    onChange: (String) -> Unit
+    onChange: (String) -> Unit,
+    difficulties: Array<String>?
 ) {
-    val difficulty = arrayOf("Beginner", "Intermediate", "Expert")
+    //val difficulty = arrayOf("Beginner", "Intermediate", "Expert")
     var expanded by remember { mutableStateOf(false) }
     var selectedText by remember { mutableStateOf(value) }
 
@@ -404,7 +404,7 @@ fun DifficultyField(
                 expanded = expanded,
                 onDismissRequest = { expanded = false }
             ) {
-                difficulty.forEach { item ->
+                difficulties?.forEach { item ->
                     DropdownMenuItem(
                         text = { Text(text = item.toTitleCase()) },
                         onClick = {
@@ -421,9 +421,11 @@ fun DifficultyField(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Results(searchResults: List<com.example.traintracks.SearchResult>, snackbarHostState: SnackbarHostState) {
+fun Results(sharedViewModel: SharedViewModel, searchResults: List<Workout>, snackbarHostState: SnackbarHostState, difficulties: Array<String>?, muscles: Array<String>?, types: Array<String>?) {
     val currentContext = LocalContext.current
-
+    val difficulties = sharedViewModel.difficulties.observeAsState().value
+    val muscles = sharedViewModel.muscles.observeAsState().value
+    val types = sharedViewModel.types.observeAsState().value
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -488,8 +490,8 @@ fun Results(searchResults: List<com.example.traintracks.SearchResult>, snackbarH
 
             if (searchResults.isNotEmpty()) {
                 // Display search results
-                searchResults.forEach { result ->
-                    SearchResultItem(result = result, snackbarHostState = snackbarHostState) // Pass snackbarHostState to SearchResultItem
+                searchResults.forEach { workout ->
+                    SearchResultItem(workout, snackbarHostState = snackbarHostState, difficulties, muscles, types) // Pass snackbarHostState to SearchResultItem
                 }
             } else {
                 // Display a message when there are no search results
@@ -504,23 +506,24 @@ fun Results(searchResults: List<com.example.traintracks.SearchResult>, snackbarH
     }
 }
 @Composable
-fun SearchResultItem(result: com.example.traintracks.SearchResult, snackbarHostState: SnackbarHostState) {
+fun SearchResultItem(workout: Workout, snackbarHostState: SnackbarHostState, difficulties: Array<String>?, types: Array<String>?, muscles: Array<String>?) {
     val auth = Firebase.auth
     val currentUser = auth.currentUser
     var isAddedToDatabase by remember { mutableStateOf(false) }
     var firebaseId by remember { mutableStateOf<String?>(null) }
+    var isOperationInProgress by remember { mutableStateOf(false) }
 
-    LaunchedEffect(result) {
+    LaunchedEffect(workout) {
         val userId = currentUser?.uid
         if (userId != null) {
-            val db = FirebaseDatabase.getInstance().getReference("users/$userId/workouts")
-            db.addListenerForSingleValueEvent(object : ValueEventListener {
+            val dbRef = FirebaseDatabase.getInstance().getReference("users/$userId/workouts")
+            dbRef.addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     snapshot.children.forEach { dataSnapshot ->
-                        val workout = dataSnapshot.getValue(Workout::class.java)
-                        if (workout?.name == result.name) {
+                        val savedWorkout = dataSnapshot.getValue(Workout::class.java)
+                        if (savedWorkout?.name == workout.name) {
                             isAddedToDatabase = true
-                            firebaseId = dataSnapshot.key // Store the Firebase ID
+                            firebaseId = dataSnapshot.key
                             return
                         }
                     }
@@ -548,7 +551,7 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult, snackbarHostS
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ){
-                val iconResId = when (result.type) {
+                val iconResId = when (workout.type) {
                     "cardio" -> R.drawable.icon_cardio
                     "olympic_weightlifting" -> R.drawable.icon_olympic_weighlifting
                     "plyometrics" -> R.drawable.icon_plyometrics
@@ -568,11 +571,11 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult, snackbarHostS
 
                 Spacer(modifier = Modifier.width(6.dp))
 
-                val difficultyIconResId = when (result.difficulty) {
-                    difficulties[0] -> R.drawable.easy
-                    difficulties[1] -> R.drawable.medium
-                    difficulties[2] -> R.drawable.hard
-                    else -> R.drawable.emh
+                val difficultyIconResId = when (workout.difficulty.toLowerCase(Locale.getDefault())) {
+                    "easy" -> R.drawable.easy
+                    "intermediate" -> R.drawable.medium
+                    "expert" -> R.drawable.hard
+                    else -> R.drawable.emh // Default icon if no match is found
                 }
 
                 Image(
@@ -593,8 +596,18 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult, snackbarHostS
                             .size(30.dp)
                             .padding(1.dp)
                             .clickable {
-                                addToFirebaseDatabase(result, snackbarHostState)
-                                isAddedToDatabase = true
+                                isAddedToDatabase = true // Optimistically update the UI
+                                saveWorkoutToFirebase(
+                                    workout,
+                                    userId,
+                                    snackbarHostState,
+                                    onSaved = { newFirebaseId ->
+                                        firebaseId = newFirebaseId // Update the ID
+                                    },
+                                    onFailure = {
+                                        isAddedToDatabase = false // Revert if failed
+                                    }
+                                )
                             }
                     )
                 } else {
@@ -604,14 +617,34 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult, snackbarHostS
                         modifier = Modifier
                             .size(30.dp)
                             .clickable {
-                                val id = firebaseId
-                                if (id != null) {
-                                    deleteFromFirebaseDatabase(id, snackbarHostState)
-                                    isAddedToDatabase = false
-                                } else {
-                                    // Handle the case where firebaseId is null
-                                    CoroutineScope(Dispatchers.Main).launch {
-                                        snackbarHostState.showSnackbar("Error: Unable to remove workout")
+                                if (!isOperationInProgress) {
+                                    isOperationInProgress = true
+                                    if (!isAddedToDatabase) {
+                                        // Add to favorites
+                                        saveWorkoutToFirebase(
+                                            workout,
+                                            userId,
+                                            snackbarHostState,
+                                            onSaved = { newFirebaseId ->
+                                                firebaseId = newFirebaseId
+                                                isAddedToDatabase= true
+                                                isOperationInProgress = false
+                                            },
+                                            onFailure = {
+                                                isOperationInProgress = false
+                                            }
+                                        )
+                                    } else {
+                                        // Remove from favorites
+                                        firebaseId?.let { firebaseId ->
+                                            onDeleteWorkout(
+                                                firebaseId,
+                                                userId,
+                                                snackbarHostState
+                                            )
+                                            isAddedToDatabase = false
+                                            isOperationInProgress = false
+                                        }
                                     }
                                 }
                             }
@@ -621,7 +654,7 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult, snackbarHostS
             }
 
             Text(
-                text = result.name,
+                text = workout.name,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -630,15 +663,15 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult, snackbarHostS
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = result.type.toTitleCase(),
+                text = workout.type.toTitleCase(),
                 fontSize = 18.sp,
-                color = getTypeColor(result.type),
+                color = getTypeColor(workout.type),
             )
 
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "Difficulty: ${result.difficulty.toTitleCase()}",
+                text = "Difficulty: ${workout.difficulty.toTitleCase()}",
                 fontSize = 18.sp,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -646,7 +679,7 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult, snackbarHostS
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "Muscle Group: ${result.muscle.toTitleCase()}",
+                text = "Muscle Group: ${workout.muscle.toTitleCase()}",
                 fontSize = 18.sp,
                 color = MaterialTheme.colorScheme.secondary
             )
@@ -656,7 +689,7 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult, snackbarHostS
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "Equipment: ${result.equipment}",
+                    text = "Equipment: ${workout.equipment}",
                     fontSize = 18.sp,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -664,7 +697,7 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult, snackbarHostS
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "Instructions: ${result.instructions}",
+                    text = "Instructions: ${workout.instructions}",
                     fontSize = 18.sp,
                     color = MaterialTheme.colorScheme.secondary
                 )
@@ -673,111 +706,51 @@ fun SearchResultItem(result: com.example.traintracks.SearchResult, snackbarHostS
     }
 }
 
-private fun addToFirebaseDatabase(result: SearchResult, snackbarHostState: SnackbarHostState) {
-    val auth = Firebase.auth
-    val currentUser = auth.currentUser
-
-    if (currentUser != null) {
-        val userId = currentUser.uid
-        val dbRef = FirebaseDatabase.getInstance().getReference("users/$userId/workouts")
-
-        val key = dbRef.push().key ?: return // Generate a new key for new entries
-
-        val workoutData = result.toWorkoutMap(key)
-        dbRef.child(key).setValue(workoutData).addOnSuccessListener {
-            CoroutineScope(Dispatchers.Main).launch {
-                snackbarHostState.showSnackbar("Workout added to favourites")
-            }
-        }.addOnFailureListener { e ->
-            CoroutineScope(Dispatchers.Main).launch {
-                snackbarHostState.showSnackbar(e.message ?: "Failed to save workout")
-            }
-        }
-    }
-}
-
-
-private fun deleteFromFirebaseDatabase(firebaseId: String, snackbarHostState: SnackbarHostState) {
-    val auth = Firebase.auth
-    val currentUser = auth.currentUser
-
-    if (currentUser != null && firebaseId != null) {
-        val userId = currentUser.uid
-        val dbRef = FirebaseDatabase.getInstance().getReference("users/$userId/workouts")
-
-        dbRef.child(firebaseId).removeValue().addOnSuccessListener {
-            CoroutineScope(Dispatchers.Main).launch {
-                snackbarHostState.showSnackbar("Workout successfully removed")
-            }
-        }.addOnFailureListener { e ->
-            CoroutineScope(Dispatchers.Main).launch {
-                snackbarHostState.showSnackbar(e.message ?: "Failed to remove workout")
-            }
-        }
-    }
-}
-
-
-fun com.example.traintracks.SearchResult.toMap(id: String): Map<String, Any?> {
-    return mapOf(
-        "id" to id,
-        "name" to name,
-        "type" to type,
-        "difficulty" to difficulty,
-        "muscle" to muscle,
-        "equipment" to equipment,
-        "instructions" to instructions
-    )
-}
-
 @OptIn(ExperimentalMaterial3Api::class, DelicateCoroutinesApi::class)
-@Preview
 @Composable
-fun SearchScreenContent() {
+fun SearchScreenContent(sharedViewModel: SharedViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
     var searchClicked by remember { mutableStateOf(false) }
-    var searchResults by remember { mutableStateOf<List<com.example.traintracks.SearchResult>>(emptyList()) }
+    var searchResults by remember { mutableStateOf<List<Workout>>(emptyList()) }
+    val difficulties = sharedViewModel.difficulties.observeAsState().value
+    val types = sharedViewModel.difficulties.observeAsState().value
+    val muscles = sharedViewModel.difficulties.observeAsState().value
 
     if (searchClicked) {
-        Results(searchResults, snackbarHostState) // Pass snackbarHostState to Results
-    } else {
-            Search { workoutName, workoutType, muscleGroup, difficulty ->
-            val retrofit = Retrofit.Builder()
-                .baseUrl("https://api.api-ninjas.com/v1/") // Replace with your API base URL
-                .addConverterFactory(GsonConverterFactory.create())
-                .build()
-            val searchApiService = retrofit.create(SearchApiService::class.java)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            // TopAppBar and other UI components
+            Results(sharedViewModel ,searchResults, snackbarHostState, difficulties, muscles, types)
 
-
-            GlobalScope .launch {
-                try {
-                    searchResults = searchApiService.searchWorkouts(
-                            workoutName,
-                            workoutType,
-                            muscleGroup,
-                            difficulty,
-                            "KX79m6HUenAsqfTvt9WydA==ib8FER6nxlcnsxnk")
-                    // Handle the search results as needed
-                    Log.i("CHECK_POINT", "Params: $workoutName, $workoutType, $muscleGroup, $difficulty  --- onResponse: $searchResults")
-                    searchClicked = true
-
-                } catch (e: HttpException) {
-                    val errorBody = e.response()?.errorBody()?.string()
-                    Log.i("CHECK_POINT", "onResponse: ${e.code()}")
-                    Log.i("CHECK_POINT", "onResponse: ${e.message()}")
-                    Log.i("CHECK_POINT", "onResponse: $errorBody")
-                } catch (e: Exception) {
-                    // Handle errors
-                    Log.i("CHECK_POINT", "onResponse: ${e.message}")
-                    Log.i("CHECK_POINT", "onResponse: ${e.cause}")
-
-                    println("Error: ${e.message}")
+            if (searchResults.isNotEmpty()) {
+                searchResults.forEach { workout ->
+                    SearchResultItem(workout, snackbarHostState, difficulties, muscles, types)
                 }
+            } else {
+                Text(
+                    text = "No results found",
+                    fontSize = 20.sp,
+                    color = Color.White,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
-
-            println("Workout Name: $workoutName, Workout Type: $workoutType, Muscle Group: $muscleGroup, Difficulty: $difficulty")
-            searchClicked = true
         }
+    } else {
+        val retrofit = Retrofit.Builder()
+            .baseUrl("https://api.api-ninjas.com/v1/") // Replace with your API's base URL
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+
+        var apiService = retrofit.create(SearchApiService::class.java)
+        Search(sharedViewModel, onSearchClicked = { workoutName, workoutType, muscleGroup, difficulty ->
+            fetchWorkouts(service = apiService, name = workoutName, muscle = muscleGroup, type = workoutType, difficulty = difficulty, offset = 0) { apiResults ->
+                searchResults = apiResults
+                searchClicked = true
+            }
+        })
     }
 
     SnackbarHost(hostState = snackbarHostState)
@@ -811,22 +784,11 @@ fun getTypeColor(type: String): Color {
 }
 
 fun String.toTitleCase(): String {
-    return this.split('_')
+    return this.replace('_', ' ')
+        .split(' ')
         .joinToString(" ") { word ->
-            word.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+            word.lowercase(Locale.getDefault()).replaceFirstChar {
+                if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString()
+            }
         }
 }
-
-fun SearchResult.toWorkoutMap(id: String): Map<String, Any?> {
-    return mapOf(
-        "id" to id,
-        "name" to name,
-        "type" to type,
-        "difficulty" to difficulty,
-        "muscle" to muscle,
-        "equipment" to equipment,
-        "instructions" to instructions
-    )
-}
-
-

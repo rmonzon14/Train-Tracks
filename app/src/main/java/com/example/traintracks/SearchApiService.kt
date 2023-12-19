@@ -11,6 +11,7 @@ interface SearchApiService {
         @Query("type") type: String?,
         @Query("muscle") muscle: String?,
         @Query("difficulty") difficulty: String?,
+        @Query("offset") offset: Int?,
         @Header("X-Api-Key") apiKey: String
     ): List<SearchResult>
 }

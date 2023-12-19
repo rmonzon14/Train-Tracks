@@ -4,6 +4,7 @@ data class WorkoutLog(
     var id: String = "",
     var name: String = "",
     var type: String = "",
+    var muscle: String = "",
     var difficulty: String = "",
     var duration: String = "",
     var distance: String? = null,
@@ -12,5 +13,5 @@ data class WorkoutLog(
     var date: String = ""
 ) {
     // Add a parameterless constructor
-    constructor() : this("","","","", "", null, "", "", "")
+    constructor() : this("","","","","", "", null, "", "", "")
 }

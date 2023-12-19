@@ -3,6 +3,7 @@ package com.example.traintracks.screens
 import android.annotation.SuppressLint
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
@@ -49,6 +50,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         FirebaseApp.initializeApp(this)
+        Log.d("CHECK_POINT", "onCreate called")
+
         setContent {
             TrainTracksTheme {
                 // A surface container using the 'background' color from the theme
@@ -107,6 +110,7 @@ fun BottomNavBar() {
                     NavigationBarItem(
                         selected = selectedItemIndex == index,
                         onClick = {
+                            Log.d("CHECK_POINT", "${item.title} clicked")
                             selectedItemIndex = index
                             navController.navigate(item.title)
                         },

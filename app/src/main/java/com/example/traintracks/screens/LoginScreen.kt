@@ -183,7 +183,6 @@ fun EmailSection(
             .padding(8.dp),
         colors = TextFieldDefaults.textFieldColors(
             containerColor = Color.Transparent,
-            textColor = Color.White,
             cursorColor = MaterialTheme.colorScheme.primary,
             focusedIndicatorColor = MaterialTheme.colorScheme.primary,
             unfocusedIndicatorColor = MaterialTheme.colorScheme.primary
@@ -223,7 +222,6 @@ fun PasswordSection(
             .padding(8.dp),
         colors = TextFieldDefaults.textFieldColors(
             containerColor = Color.Transparent,
-            textColor = Color.White,
         ),
         leadingIcon = @Composable {
             Icon(

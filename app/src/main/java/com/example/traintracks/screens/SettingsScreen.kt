@@ -60,13 +60,18 @@ import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.traintracks.R
+import com.example.traintracks.SearchApiService
 import com.google.android.gms.tasks.Tasks
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -83,14 +88,17 @@ fun SettingsScreen() {
     var newWorkoutName by remember { mutableStateOf("") }
     var newWorkoutDate by remember { mutableStateOf("") }
     var newWorkoutType by remember { mutableStateOf("") }
+    var newWorkoutMuscle by remember { mutableStateOf("") }
     var newWorkoutDuration by remember { mutableStateOf("") }
     var newWorkoutDistance by remember { mutableStateOf("") }
     var newWorkoutSets by remember { mutableStateOf("") }
     var newWorkoutReps by remember { mutableStateOf("") }
     var showNoteField by remember { mutableStateOf(false) }
     var noteText by remember { mutableStateOf("") }
-    var dropDownText by remember { mutableStateOf("") }
-    var expanded by remember { mutableStateOf(false) }
+    var dropDownTypeText by remember { mutableStateOf("") }
+    var dropDownMuscleText by remember { mutableStateOf("") }
+    var expandedTypes by remember { mutableStateOf(false) }
+    var expandedMuscles by remember { mutableStateOf(false) }
     var workoutLogs by remember { mutableStateOf<List<WorkoutLog>>(emptyList()) }
     var notesData by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -107,6 +115,8 @@ fun SettingsScreen() {
     val updateSelectedWorkouts: (Set<String>) -> Unit = { newSet ->
         selectedWorkouts = newSet
     }
+    val sharedViewModel: SharedViewModel = viewModel()
+    val types by sharedViewModel.types.observeAsState(arrayOf())
 
     @Composable
     fun CustomAppBar(
@@ -165,7 +175,7 @@ fun SettingsScreen() {
             confirmButton = {
                 Button(onClick = {
                     val selectedIds = selectedWorkouts
-                    deleteSelectedWorkouts(selectedIds, {
+                    deleteSelectedWorkoutLogs(selectedIds, {
                         workoutLogs = it
                     }, successMessage, errorMessage, workoutLogs)
                     showDeleteConfirmationDialog = false
@@ -186,14 +196,7 @@ fun SettingsScreen() {
             }
         )
     }
-    val workoutTypes = arrayOf(
-        "cardio",
-        "olympic_weightlifting",
-        "plyometrics",
-        "powerlifting",
-        "strength",
-        "stretching",
-        "strongman")
+
 
     if (showAddWorkoutDialog) {
         // Function to reset the dialog fields
@@ -201,7 +204,7 @@ fun SettingsScreen() {
             newWorkoutName = ""
             newWorkoutDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
             newWorkoutType = ""
-            dropDownText = ""
+            dropDownTypeText = ""
             newWorkoutDuration = ""
             newWorkoutDistance = ""
             newWorkoutSets = ""
@@ -232,49 +235,24 @@ fun SettingsScreen() {
                     Spacer(modifier = Modifier.height(8.dp))
 
                     // Dropdown for Workout Type
-                    ExposedDropdownMenuBox(
-                        expanded = expanded,
-                        onExpandedChange = {
-                            expanded = !expanded
-                        }
-                    ) {
-                        TextField(
-                            value = dropDownText,
-                            onValueChange = { },
-                            readOnly = true,
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                            label = { Text(
-                                "Workout Type",
-                                fontSize = 16.sp
-                            ) },
-                            modifier = Modifier.menuAnchor()
-                        )
-
-                        ExposedDropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false }
-                        ) {
-                            workoutTypes.forEach { item ->
-                                DropdownMenuItem(
-                                    text = { Text(
-                                        text = item,
-                                        fontSize = 16.sp
-                                    ) },
-                                    onClick = {
-                                        dropDownText = item
-                                        expanded = false
-                                        newWorkoutType = item
-                                    }
-                                )
-                            }
-                        }
-                    }
+                    CustomDropDownMenu(
+                        selectedText = dropDownTypeText,
+                        group = types,
+                        onItemSelected = { selected ->
+                            dropDownTypeText = selected
+                            newWorkoutType = selected
+                        },
+                        expanded = expandedTypes,
+                        onExpandedChange = { expandedTypes = it }
+                    )
 
                     // Conditional fields based on workout type
                     when (newWorkoutType) {
+
                         "cardio" -> {
                             newWorkoutSets = ""
                             newWorkoutReps = ""
+
                             Spacer(modifier = Modifier.height(8.dp))
 
                             TextField(
@@ -408,6 +386,7 @@ fun SettingsScreen() {
                         id = logId,
                         name = newWorkoutName,
                         type = newWorkoutType,
+                        muscle = newWorkoutMuscle,
                         difficulty = "user entry", // Default difficulty
                         duration = newWorkoutDuration,
                         distance = newWorkoutDistance.ifBlank { null },
@@ -461,15 +440,22 @@ fun SettingsScreen() {
         )
     }
 
+    val retrofit = Retrofit.Builder()
+        .baseUrl("https://api.api-ninjas.com/v1/") // Replace with your API's base URL
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
 
+    val apiService = retrofit.create(SearchApiService::class.java)
 
     LaunchedEffect(Unit) {
         logsDbRef.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
+                sharedViewModel.initializeData(apiService)
                 workoutLogs = snapshot.children.mapNotNull { it.getValue(WorkoutLog::class.java) }
                     .asReversed()
                     .sortedByDescending { it.date }
                 isLoading = false
+
             }
 
             override fun onCancelled(error: DatabaseError) {
@@ -499,7 +485,7 @@ fun SettingsScreen() {
 
     Box(modifier = Modifier.fillMaxSize()) {
         if (isLoading) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            //CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         } else {
             Surface(
                 modifier = Modifier
@@ -799,33 +785,6 @@ fun WorkoutLogCard(
         }
     }
 
-    @Composable
-    fun getDifficultyColor(difficulty: String): Color {
-        val darkGreen = Color(0xFF006400)
-        val darkOrange = Color(0xFFCC8400)
-        val darkRed = Color(0xFFCD5C5C)
-        return when (difficulty) {
-            "beginner" -> darkGreen
-            "intermediate" -> darkOrange
-            "expert" -> darkRed
-            else -> MaterialTheme.colorScheme.secondary
-        }
-    }
-
-    @Composable
-    fun getTypeColor(type: String): Color {
-        return when (type) {
-            "cardio" -> Color(0xFFC91212)
-            "olympic_weightlifting" -> Color(0xFFFF8F00)
-            "plyometrics" -> Color(0xFFF124AA)
-            "powerlifting" -> Color(0xFF1D28A2)
-            "strength" -> Color(0xFF9C27B0)
-            "stretching" -> Color(0xFF008B8B)
-            "strongman" -> Color(0xFF9B6857)
-            else -> MaterialTheme.colorScheme.secondary
-        }
-    }
-
     if (showAddNoteDialog) {
         AlertDialog(
             onDismissRequest = { showAddNoteDialog = false },
@@ -1075,7 +1034,7 @@ fun WorkoutLogCard(
                         colors = CheckboxDefaults.colors(
                             checkedColor = MaterialTheme.colorScheme.primary, // Color when the Checkbox is checked
                             uncheckedColor = MaterialTheme.colorScheme.primary, // Color when the Checkbox is unchecked
-                            checkmarkColor = MaterialTheme.colorScheme.secondary // Color of the checkmark
+                            checkmarkColor = MaterialTheme.colorScheme.background  // Color of the checkmark
                         ),
                         checked = isChecked,
                         onCheckedChange = onCheckedChange
@@ -1226,7 +1185,7 @@ fun WorkoutLogCard(
 
     }
 }
-fun deleteSelectedWorkouts(
+fun deleteSelectedWorkoutLogs(
     selectedIds: Set<String>,
     updateWorkoutLogs: (List<WorkoutLog>) -> Unit,
     successMessage: MutableState<String?>,
@@ -1330,4 +1289,41 @@ fun isValidDistance(
     return Pair(true, "")
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CustomDropDownMenu(
+    selectedText: String,
+    group: Array<String>,
+    onItemSelected: (String) -> Unit,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit
+) {
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = onExpandedChange
+    ) {
+        TextField(
+            value = selectedText,
+            onValueChange = { },
+            readOnly = true,
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            label = { Text("Workout Type", fontSize = 16.sp) },
+            modifier = Modifier.menuAnchor()
+        )
 
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { onExpandedChange(false) }
+        ) {
+            group.forEach { item ->
+                DropdownMenuItem(
+                    text = { Text(text = item, fontSize = 16.sp) },
+                    onClick = {
+                        onItemSelected(item)
+                        onExpandedChange(false)
+                    }
+                )
+            }
+        }
+    }
+}

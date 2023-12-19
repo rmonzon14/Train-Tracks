@@ -67,10 +67,14 @@ import kotlinx.coroutines.withContext
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import androidx.compose.material3.*
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.traintracks.WorkoutLog
+import com.google.firebase.database.DatabaseReference
 import org.intellij.lang.annotations.JdkConstants.HorizontalAlignment
 import java.util.Locale
 import java.util.UUID
@@ -79,62 +83,133 @@ import java.util.UUID
 val auth = Firebase.auth
 val currentUser = auth.currentUser
 val userId = currentUser?.uid ?: ""
-val difficulties = arrayOf("beginner", "intermediate", "expert")
-val muscles = arrayOf("abdominals", "abductors", "adductors", "biceps", "calves", "chest", "forearms", "glutes", "hamstrings", "lats", "lower_back", "middle_back", "neck", "quadriceps", "traps", "triceps", null)
-val types = arrayOf("cardio", "strength", "stretching", "plyometrics", "powerlifting", "strongman", "olympic_weightlifting")
 
 @Composable
 fun HomeScreen(navController: NavHostController) {
+    val sharedViewModel: SharedViewModel = viewModel()
+    var difficulties = sharedViewModel.difficulties.observeAsState().value
+    var muscles = sharedViewModel.muscles.observeAsState().value
+    var types = sharedViewModel.types.observeAsState().value
+
+    var recommendedWorkoutsByMuscleGroup by remember { mutableStateOf<Map<String, List<Workout>>>(mapOf()) }
     val snackbarHostState = remember { SnackbarHostState() }
     val currentContext = LocalContext.current
-    var workouts by remember { mutableStateOf<List<Workout>>(listOf()) }
     var selectedWorkout by remember { mutableStateOf<Workout?>(null) }
     var showDialog by remember { mutableStateOf(false) }
-    val dbRef = FirebaseDatabase.getInstance().getReference("users/$userId/workouts")
-    val logId = dbRef.push().key ?: return
-    val retrofit = Retrofit.Builder()
-        .baseUrl("https://api.api-ninjas.com/v1/")
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
     var workoutsByType by remember { mutableStateOf<List<Workout>>(listOf()) }
     var workoutsByMuscle by remember { mutableStateOf<List<Workout>>(listOf()) }
     var workoutsByDifficulty by remember { mutableStateOf<List<Workout>>(listOf()) }
-    val searchApiService = retrofit.create(SearchApiService::class.java)
     var randomMuscle by remember { mutableStateOf("") }
     var randomType by remember { mutableStateOf("") }
     var randomDifficulty by remember { mutableStateOf("") }
+    val workoutLogs = remember { mutableStateOf<List<WorkoutLog>>(listOf()) }
+    val retrofit = Retrofit.Builder()
+        .baseUrl("https://api.api-ninjas.com/v1/") // Replace with your API's base URL
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
 
+    var apiService = retrofit.create(SearchApiService::class.java)
 
     LaunchedEffect(Unit) {
-        randomMuscle = muscles.randomOrNull() ?: ""
-        randomType = types.randomOrNull() ?: ""
-        randomDifficulty = difficulties.randomOrNull() ?: ""
-
-        // Fetch workouts by random muscle
-        fetchWorkouts(searchApiService, randomMuscle, null, null) { apiResults ->
-            workoutsByMuscle = apiResults
-            Log.d("FetchWorkouts", "Muscle Workouts: $apiResults")
+        initializeData(apiService) { fetchedDifficulties, fetchedMuscles, fetchedTypes ->
+            // Update LiveData in SharedViewModel
+            sharedViewModel.apply {
+                _difficulties.value = fetchedDifficulties
+                _muscles.value = fetchedMuscles
+                _types.value = fetchedTypes
+            }
+            apiService = apiService
+            difficulties = fetchedDifficulties
+            muscles = fetchedMuscles
+            types = fetchedTypes
         }
+        randomMuscle = muscles?.randomOrNull() ?: ""
+        randomType = types?.randomOrNull() ?: ""
+        randomDifficulty = difficulties?.randomOrNull() ?: ""
 
-        // Fetch workouts by random type
-        fetchWorkouts(searchApiService, null, randomType, null) { apiResults ->
-            workoutsByType = apiResults
-        }
+        // Fetch all items from Firebase /data path
+        val dataRef = FirebaseDatabase.getInstance().getReference("/data")
+        dataRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val items = snapshot.children.mapNotNull { it.getValue(Workout::class.java) }
 
-        // Fetch workouts by random difficulty
-        fetchWorkouts(searchApiService, null, null, randomDifficulty) { apiResults ->
-            workoutsByDifficulty = apiResults
-        }
+                // Randomly select muscle, type, and difficulty
+                randomMuscle = muscles?.randomOrNull() ?: ""
+                randomType = types?.randomOrNull() ?: ""
+                randomDifficulty = difficulties?.randomOrNull() ?: ""
 
-    }
+                // Count items for each category
+                val typeCount = items.count { it.type == randomType }
+                val muscleCount = items.count { it.muscle == randomMuscle }
+                val difficultyCount = items.count { it.difficulty == randomDifficulty }
 
-    if (showDialog && selectedWorkout != null) {
-        WorkoutDetailsDialog(
-            workout = selectedWorkout!!,
-            onClose = { showDialog = false },
-            onSaveWorkout = { workout -> saveWorkoutToFirebase(workout, userId, snackbarHostState) },
-            snackbarHostState = snackbarHostState
-        )
+                // Calculate max offsets
+                val maxTypeOffset = if (typeCount > 10) typeCount - 10 else 0
+                val maxMuscleOffset = if (muscleCount > 10) muscleCount - 10 else 0
+                val maxDifficultyOffset = if (difficultyCount > 10) difficultyCount - 10 else 0
+
+                // Generate random offsets
+                val randomTypeOffset = (0..maxTypeOffset).random()
+                val randomMuscleOffset = (0..maxMuscleOffset).random()
+                val randomDifficultyOffset = (0..maxDifficultyOffset).random()
+
+                // Use random offsets for API calls
+                fetchWorkouts(apiService, null, randomMuscle, null, null, randomMuscleOffset) { workouts ->
+                    workoutsByMuscle = workouts
+                }
+
+                fetchWorkouts(apiService, null, null, randomType, null, randomTypeOffset) { workouts ->
+                    workoutsByType = workouts
+                }
+
+                fetchWorkouts(apiService, null, null, null, randomDifficulty, randomDifficultyOffset) { workouts ->
+                    workoutsByDifficulty = workouts
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("Firebase", "Failed to fetch data", error.toException())
+            }
+        })
+
+        val logsRef = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
+        logsRef.addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val fetchedLogs = snapshot.children.mapNotNull { it.getValue(WorkoutLog::class.java) }
+
+                // Filter logs for the last 30 days
+                val logsWithinLast30Days = filterLogsForLast30Days(fetchedLogs)
+                workoutLogs.value = logsWithinLast30Days
+
+                dataRef.addListenerForSingleValueEvent(object : ValueEventListener {
+                    override fun onDataChange(dataSnapshot: DataSnapshot) {
+                        val items = dataSnapshot.children.mapNotNull { it.getValue(Workout::class.java) }
+
+                        findAllLeastEngagedMuscleGroups(calculateMuscleGroupPercentages(workoutLogs.value)).forEach { muscleGroup ->
+                            val muscleCount = items.count { it.muscle == muscleGroup }
+                            val maxMuscleOffset = if (muscleCount > 10) muscleCount - 10 else 0
+                            val randomMuscleOffset = (0..maxMuscleOffset).random()
+
+                            fetchWorkouts(apiService, null, muscleGroup, null, null, randomMuscleOffset) { workouts ->
+                                recommendedWorkoutsByMuscleGroup = recommendedWorkoutsByMuscleGroup.toMutableMap().apply {
+                                    put(muscleGroup, workouts)
+                                }
+                            }
+                        }
+                    }
+
+                    override fun onCancelled(dataError: DatabaseError) {
+                        Log.e("Firebase", "Failed to fetch data", dataError.toException())
+                    }
+                })
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                CoroutineScope(Dispatchers.Main).launch {
+                    snackbarHostState.showSnackbar("Error: Unable to fetch workout logs")
+                }
+            }
+        })
     }
 
     Box(
@@ -158,8 +233,8 @@ fun HomeScreen(navController: NavHostController) {
             verticalArrangement = Arrangement.spacedBy(12.dp, alignment = Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            SnackbarHost(hostState = snackbarHostState)
             // Title
-
             Icon(
                 painter = painterResource(id = R.drawable.baseline_fitness_center_24),
                 contentDescription = "",
@@ -214,30 +289,60 @@ fun HomeScreen(navController: NavHostController) {
             val scrollState = rememberScrollState()
 
             Column(modifier = Modifier.verticalScroll(scrollState)) {
+                Text("Recommended Muscle Groups", style = MaterialTheme.typography.headlineSmall)
+
+                Spacer(Modifier.height(16.dp))
+
+                recommendedWorkoutsByMuscleGroup.forEach { (muscleGroup, workouts) ->
+                    Text(muscleGroup.toTitleCase(), style = MaterialTheme.typography.headlineSmall)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(workouts) { workout ->
+                            WorkoutCard(workout = workout, difficulties = difficulties, onWorkoutClick = {
+                                selectedWorkout = workout
+                                showDialog = true
+                            })
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
+
+                // Workout details dialog
+                if (showDialog && selectedWorkout != null && difficulties != null) {
+                    WorkoutDetailsDialog(
+                        workout = selectedWorkout!!,
+                        onClose = { showDialog = false },
+                        difficulties = difficulties,
+                        snackbarHostState
+                    )
+                }
 
                 Text(
-                    text = randomMuscle.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() },
+                    text = randomMuscle.toTitleCase(),
                     style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.secondary
+                    color = Color.White
                 )
 
-                // LazyRow for displaying workouts
                 LazyRow(
                     modifier = Modifier.padding(top = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(workoutsByMuscle) { workout ->
-                        WorkoutCard(workout = workout, onWorkoutClick = {
-                            selectedWorkout = workout
-                            showDialog = true
+                        WorkoutCard(workout = workout, difficulties = difficulties, onWorkoutClick = {
+                            if (workout != null) {
+                                selectedWorkout = workout
+                                showDialog = true
+                            } else {
+                                Log.e("HomeScreen", "Selected workout is null")
+                            }
                         })
                     }
                 }
 
+
                 Text(
-                    text = randomType.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() },
+                    text = randomType.toTitleCase(),
                     style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.secondary
+                    color = Color.White
                 )
 
                 LazyRow(
@@ -245,7 +350,7 @@ fun HomeScreen(navController: NavHostController) {
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(workoutsByType) { workout ->
-                        WorkoutCard(workout = workout, onWorkoutClick = {
+                        WorkoutCard(workout = workout, difficulties = difficulties, onWorkoutClick = {
                             selectedWorkout = workout
                             showDialog = true
                         })
@@ -253,10 +358,9 @@ fun HomeScreen(navController: NavHostController) {
                 }
 
                 Text(
-                    text = randomDifficulty.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(
-                        Locale.getDefault()) else it.toString() },
+                    text = randomDifficulty.toTitleCase(),
                     style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.secondary
+                    color = Color.White
                 )
 
                 LazyRow(
@@ -264,19 +368,20 @@ fun HomeScreen(navController: NavHostController) {
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(workoutsByDifficulty) { workout ->
-                        WorkoutCard(workout = workout, onWorkoutClick = {
+                        WorkoutCard(workout = workout, difficulties = difficulties, onWorkoutClick = {
                             selectedWorkout = workout
                             showDialog = true
                         })
                     }
                 }
             }
+
         }
     }
 }
 
 @Composable
-fun WorkoutCard(workout: Workout, onWorkoutClick: (Workout) -> Unit) {
+fun WorkoutCard(workout: Workout, difficulties: Array<String>?, onWorkoutClick: (Workout) -> Unit) {
     // Determine the icon resource ID based on the workout type
     val iconResId = when (workout.type) {
         "cardio" -> R.drawable.icon_cardio
@@ -307,8 +412,8 @@ fun WorkoutCard(workout: Workout, onWorkoutClick: (Workout) -> Unit) {
                 )
 
                 // Content of the card
-                Text(workout.name, fontWeight = FontWeight.Bold)
-                Text("Type: ${workout.type}")
+                Text(workout.name.toTitleCase(), fontWeight = FontWeight.Bold)
+                Text("Type: ${workout.type.toTitleCase()}")
                 Text("Muscle: ${workout.muscle}")
                 Text("Difficulty: ${workout.difficulty}")
                 // Add more workout details as needed
@@ -321,18 +426,19 @@ fun WorkoutCard(workout: Workout, onWorkoutClick: (Workout) -> Unit) {
 fun WorkoutDetailsDialog(
     workout: Workout,
     onClose: () -> Unit,
-    onSaveWorkout: (Workout) -> Unit,
+    difficulties: Array<String>?,
     snackbarHostState: SnackbarHostState
 ) {
-    var showSavedMessage by remember { mutableStateOf(false) }
     var showDeleteMessage by remember { mutableStateOf(false) }
     var isWorkoutSaved by remember { mutableStateOf(false) }
     var snackbarMessage by remember { mutableStateOf("") }
+    var savedFirebaseId by remember { mutableStateOf<String?>(null) }
+    var isOperationInProgress by remember { mutableStateOf(false) }
 
     LaunchedEffect(workout) {
-        // Check if the workout is already saved
-        checkIfWorkoutSaved(workout, userId) { isSaved ->
+        checkIfWorkoutSaved(workout) { isSaved, firebaseId ->
             isWorkoutSaved = isSaved
+            savedFirebaseId = firebaseId
         }
     }
 
@@ -379,12 +485,36 @@ fun WorkoutDetailsDialog(
                                         .size(30.dp)
                                         .padding(1.dp)
                                         .clickable {
-                                            saveWorkoutToFirebase(
-                                                workout,
-                                                userId,
-                                                snackbarHostState
-                                            )
-                                            isWorkoutSaved = true
+                                            if (!isOperationInProgress) {
+                                                isOperationInProgress = true
+                                                if (!isWorkoutSaved) {
+                                                    // Add to favorites
+                                                    saveWorkoutToFirebase(
+                                                        workout,
+                                                        userId,
+                                                        snackbarHostState,
+                                                        onSaved = { newFirebaseId ->
+                                                            savedFirebaseId = newFirebaseId
+                                                            isWorkoutSaved = true
+                                                            isOperationInProgress = false
+                                                        },
+                                                        onFailure = {
+                                                            isOperationInProgress = false
+                                                        }
+                                                    )
+                                                } else {
+                                                    // Remove from favorites
+                                                    savedFirebaseId?.let { firebaseId ->
+                                                        onDeleteWorkout(
+                                                            firebaseId,
+                                                            userId,
+                                                            snackbarHostState
+                                                        )
+                                                        isWorkoutSaved = false
+                                                        isOperationInProgress = false
+                                                    }
+                                                }
+                                            }
                                         }
                                 )
                             } else {
@@ -394,8 +524,10 @@ fun WorkoutDetailsDialog(
                                     modifier = Modifier
                                         .size(30.dp)
                                         .clickable {
-                                            onDeleteWorkout(workout, userId, snackbarHostState)
-                                            isWorkoutSaved = false
+                                            savedFirebaseId?.let { firebaseId ->
+                                                onDeleteWorkout(firebaseId, userId, snackbarHostState)
+                                                isWorkoutSaved = false
+                                            }
                                         }
                                 )
                             }
@@ -404,47 +536,11 @@ fun WorkoutDetailsDialog(
                     Row(
                         modifier = Modifier.padding(start = 20.dp)
                     ){
-                        val iconResId = when (workout.type) {
-                            "cardio" -> R.drawable.icon_cardio
-                            "olympic_weightlifting" -> R.drawable.icon_olympic_weighlifting
-                            "plyometrics" -> R.drawable.icon_plyometrics
-                            "powerlifting" -> R.drawable.icon_powerlifting
-                            "strength" -> R.drawable.strength
-                            "stretching" -> R.drawable.icon_stretching
-                            "strongman" -> R.drawable.icon_strongman
-                            else -> R.drawable.icon_strongman
-                        }
-
-                        val difficultyIconResId = when (workout.difficulty) {
-                            difficulties[0] -> R.drawable.easy
-                            difficulties[1] -> R.drawable.medium
-                            difficulties[2] -> R.drawable.hard
-                            else -> R.drawable.emh
-                        }
-
-                        val muscleIconResId = when (workout.difficulty) {
-                            muscles[0] -> R.drawable.easy
-                            muscles[1] -> R.drawable.medium
-                            muscles[2] -> R.drawable.hard
-                            else -> R.drawable.emh
-                        }
-
-                        Image(
-                            painter = painterResource(id = iconResId),
-                            contentDescription = "Workout Type Icon",
-                            colorFilter = ColorFilter.tint(getTypeColor(workout.type)),
-                            modifier = Modifier
-                                .size(50.dp)
-                        )
+                        showTypeIcon(workout, 50, MaterialTheme.colorScheme.primary)
 
                         Spacer(Modifier.height(6.dp))
 
-                        Image(
-                            painter = painterResource(difficultyIconResId),
-                            contentDescription = "Difficulty Icon",
-                            colorFilter = ColorFilter.tint(getDifficultyColor(workout.difficulty)),
-                            modifier = Modifier.size(50.dp)
-                        )
+                        showDifficultyIcon(workout, 50, difficulties = difficulties)
                     }
                 }
 
@@ -459,10 +555,19 @@ fun WorkoutDetailsDialog(
                     modifier = Modifier
                         .verticalScroll(scrollState)
                 ){
-                    Text("Type: ${workout.type}")
-                    Text("Muscle: ${workout.muscle}")
-                    Text("Difficulty: ${workout.difficulty}")
-                    Text("Equipment: ${workout.equipment}")
+                    Text(
+                        "${workout.type.toTitleCase()}",
+                        color = getTypeColor(workout.type)
+                    )
+                    Text(
+                        "Muscle: ${workout.muscle.toTitleCase()}",
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text("Difficulty: ${workout.difficulty.toTitleCase()}")
+                    Text(
+                        "Equipment: ${workout.equipment.toTitleCase()}",
+                        color = MaterialTheme.colorScheme.primary
+                    )
                     Text("Instructions: ${workout.instructions}")
 
                     Spacer(Modifier.height(16.dp))
@@ -496,35 +601,83 @@ fun WorkoutDetailsDialog(
     }
 }
 
-fun saveWorkoutToFirebase(workout: Workout, userId: String, snackbarHostState: SnackbarHostState) {
+fun saveWorkoutToFirebase(workout: Workout, userId: String, snackbarHostState: SnackbarHostState, onSaved: (String) -> Unit, onFailure: () -> Unit) {
     val dbRef = FirebaseDatabase.getInstance().getReference("users/$userId/workouts")
-    dbRef.child(workout.id ?: dbRef.push().key!!)
-        .setValue(workout)
-        .addOnSuccessListener {
-            CoroutineScope(Dispatchers.Main).launch {
-                snackbarHostState.showSnackbar("Workout added to favourites")
+
+    // Check if the workout is already saved
+    dbRef.addListenerForSingleValueEvent(object : ValueEventListener {
+        override fun onDataChange(snapshot: DataSnapshot) {
+            var isAlreadySaved = false
+
+            for (dataSnapshot in snapshot.children) {
+                val savedWorkout = dataSnapshot.getValue(Workout::class.java)
+                if (savedWorkout?.name == workout.name) {
+                    isAlreadySaved = true
+                    break
+                }
+            }
+
+            if (!isAlreadySaved) {
+                // Save the new workout
+                val workoutId = dbRef.push().key ?: return
+                dbRef.child(workoutId)
+                    .setValue(workout.copy(id = workoutId))
+                    .addOnSuccessListener {
+                        CoroutineScope(Dispatchers.Main).launch {
+                            snackbarHostState.showSnackbar("Workout added to favourites")
+                            onSaved(workoutId)
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        CoroutineScope(Dispatchers.Main).launch {
+                            snackbarHostState.showSnackbar(e.message ?: "Failed to save workout")
+                            onFailure()
+                        }
+                    }
+            } else {
+                // Workout is already saved, no need to save again
+                onFailure()
             }
         }
-        .addOnFailureListener { e ->
-            CoroutineScope(Dispatchers.Main).launch {
-                snackbarHostState.showSnackbar(e.message ?: "Failed to save workout")
-            }
+
+        override fun onCancelled(error: DatabaseError) {
+            Log.e("Firebase", "Failed to check if workout is already saved", error.toException())
+            onFailure()
         }
-}
-fun checkIfWorkoutSaved(workout: Workout, userId: String, onResult: (Boolean) -> Unit) {
-    val dbRef = FirebaseDatabase.getInstance().getReference("users/$userId/workouts")
-    dbRef.orderByChild("name").equalTo(workout.name)
-        .addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                onResult(snapshot.children.any { it.getValue(Workout::class.java)?.name == workout.name })
-            }
-            override fun onCancelled(error: DatabaseError) {}
-        })
+    })
 }
 
-fun onDeleteWorkout(workout: Workout, userId: String, snackbarHostState: SnackbarHostState) {
+
+
+private fun checkIfWorkoutSaved(workout: Workout, callback: (Boolean, String?) -> Unit) {
+    val auth = Firebase.auth
+    val currentUser = auth.currentUser
+    val userId = currentUser?.uid ?: return
+
     val dbRef = FirebaseDatabase.getInstance().getReference("users/$userId/workouts")
-    dbRef.child(workout.id)
+    dbRef.addListenerForSingleValueEvent(object : ValueEventListener {
+        override fun onDataChange(snapshot: DataSnapshot) {
+            var isSaved = false
+            var savedFirebaseId: String? = null
+            snapshot.children.forEach { dataSnapshot ->
+                val savedWorkout = dataSnapshot.getValue(Workout::class.java)
+                if (savedWorkout?.name == workout.name) {
+                    isSaved = true
+                    savedFirebaseId = dataSnapshot.key
+                    return@forEach
+                }
+            }
+            callback(isSaved, savedFirebaseId)
+        }
+        override fun onCancelled(error: DatabaseError) {
+            Log.e("Firebase", "Failed to check if workout is saved", error.toException())
+        }
+    })
+}
+
+fun onDeleteWorkout(workoutId: String, userId: String, snackbarHostState: SnackbarHostState) {
+    val dbRef = FirebaseDatabase.getInstance().getReference("users/$userId/workouts")
+    dbRef.child(workoutId)
         .removeValue()
         .addOnSuccessListener {
             CoroutineScope(Dispatchers.Main).launch {
@@ -538,11 +691,46 @@ fun onDeleteWorkout(workout: Workout, userId: String, snackbarHostState: Snackba
         }
 }
 
-private fun fetchWorkouts(
+
+suspend fun initializeData(apiService: SearchApiService, onSuccess: (Array<String>, Array<String>, Array<String>) -> Unit) {
+    val dbRef = FirebaseDatabase.getInstance().getReference("/data")
+
+    dbRef.get().addOnSuccessListener { dataSnapshot ->
+        // If data is empty, fetch and store data
+        if (!dataSnapshot.exists()) {
+            CoroutineScope(Dispatchers.IO).launch {
+                fetchAndStoreData(apiService, dbRef)
+            }
+        }
+
+        // Collect unique values for types, muscles, and difficulties
+        val fetchedDifficulties = mutableSetOf<String>()
+        val fetchedMuscles = mutableSetOf<String>()
+        val fetchedTypes = mutableSetOf<String>()
+
+        dataSnapshot.children.forEach { childSnapshot ->
+            val workout = childSnapshot.getValue(Workout::class.java)
+            workout?.let {
+                fetchedDifficulties.add(it.difficulty)
+                fetchedMuscles.add(it.muscle)
+                fetchedTypes.add(it.type)
+            }
+        }
+
+        onSuccess(fetchedDifficulties.toTypedArray(), fetchedMuscles.toTypedArray(), fetchedTypes.toTypedArray())
+
+    }.addOnFailureListener { exception ->
+        Log.e("Firebase", "Error getting data", exception)
+    }
+}
+
+fun fetchWorkouts(
     service: SearchApiService,
+    name: String?,
     muscle: String?,
     type: String?,
     difficulty: String?,
+    offset: Int?,
     onSuccess: (List<Workout>) -> Unit
 ) {
     val dbRef = FirebaseDatabase.getInstance().getReference("users/$userId/workouts")
@@ -550,11 +738,12 @@ private fun fetchWorkouts(
     CoroutineScope(Dispatchers.IO).launch {
         try {
             val apiResults = service.searchWorkouts(
-                name = null,
+                name = name,
                 type = type,
                 muscle = muscle,
                 difficulty = difficulty,
-                apiKey = "KX79m6HUenAsqfTvt9WydA==ib8FER6nxlcnsxnk"
+                apiKey = "KX79m6HUenAsqfTvt9WydA==ib8FER6nxlcnsxnk",
+                offset = offset
             )
 
             withContext(Dispatchers.Main) {
@@ -573,5 +762,21 @@ private fun fetchWorkouts(
         } catch (e: Exception) {
             Log.e("API Error", "Error fetching workouts", e)
         }
+    }
+}
+
+suspend fun fetchAndStoreData(apiService: SearchApiService, dbRef: DatabaseReference) {
+    val dataRef = FirebaseDatabase.getInstance().getReference("users/$userId/workouts")
+    var offset = 0
+    while (true) {
+        val workouts = apiService.searchWorkouts(null, null, null, null, offset, "KX79m6HUenAsqfTvt9WydA==ib8FER6nxlcnsxnk")
+        if (workouts.isEmpty()) break
+
+        workouts.forEach { workout ->
+            val itemId = dataRef.push().key ?: return
+            dbRef.child(itemId).setValue(workout)
+        }
+
+        offset += 10
     }
 }

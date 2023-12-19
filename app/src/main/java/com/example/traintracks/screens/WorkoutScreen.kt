@@ -41,11 +41,17 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.traintracks.R
+import com.example.traintracks.SearchApiService
+import kotlinx.coroutines.CoroutineScope
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -84,6 +90,19 @@ fun WorkoutScreen() {
     var errorMessage by remember { mutableStateOf("") }
     var selectedWorkouts by remember { mutableStateOf<Set<String>>(setOf()) }
     var showDeleteConfirmationDialog by remember { mutableStateOf(false) }
+    val sharedViewModel: SharedViewModel = viewModel()
+    val difficulties = sharedViewModel.difficulties.observeAsState().value
+    val retrofit = Retrofit.Builder()
+        .baseUrl("https://api.api-ninjas.com/v1/") // Replace with your API's base URL
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    val apiService = retrofit.create(SearchApiService::class.java)
+
+    // LaunchedEffect to initialize data
+    LaunchedEffect(Unit) {
+        sharedViewModel.initializeData(apiService)
+    }
 
 
     db.addValueEventListener(object : ValueEventListener {
@@ -98,33 +117,6 @@ fun WorkoutScreen() {
             isLoading = false
         }
     })
-
-    @Composable
-    fun getDifficultyColor(difficulty: String): Color {
-        val darkGreen = Color(0xFF006400)
-        val darkOrange = Color(0xFFCC8400)
-        val darkRed = Color(0xFFCD5C5C)
-        return when (difficulty) {
-            "beginner" -> darkGreen
-            "intermediate" -> darkOrange
-            "expert" -> darkRed
-            else -> MaterialTheme.colorScheme.secondary
-        }
-    }
-
-    @Composable
-    fun getTypeColor(type: String): Color {
-        return when (type) {
-            "cardio" -> Color(0xFFC91212)
-            "olympic_weightlifting" -> Color(0xFFFF8F00)
-            "plyometrics" -> Color(0xFFF124AA)
-            "powerlifting" -> Color(0xFF1D28A2)
-            "strength" -> Color(0xFF9C27B0)
-            "stretching" -> Color(0xFF008B8B)
-            "strongman" -> Color(0xFF9B6857)
-            else -> MaterialTheme.colorScheme.secondary
-        }
-    }
 
     @Composable
     fun CustomAppBar(
@@ -219,6 +211,7 @@ fun WorkoutScreen() {
             id = logId,
             name = workout.name,
             type = workout.type,
+            muscle = workout.muscle,
             difficulty = workout.difficulty,
             duration = workoutDuration,
             distance = workoutDistance,
@@ -409,7 +402,7 @@ fun WorkoutScreen() {
                                 ) {
 
                                     Text(
-                                        text = workout.name,
+                                        text = workout.name.toTitleCase(),
                                         style = MaterialTheme.typography.headlineSmall,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.secondary,
@@ -419,25 +412,7 @@ fun WorkoutScreen() {
                                 }
                             },
                             navigationIcon = {
-                                val iconResId = when (workout.type) {
-                                    "cardio" -> R.drawable.icon_cardio
-                                    "olympic_weightlifting" -> R.drawable.icon_olympic_weighlifting
-                                    "plyometrics" -> R.drawable.icon_plyometrics
-                                    "powerlifting" -> R.drawable.icon_powerlifting
-                                    "strength" -> R.drawable.strength
-                                    "stretching" -> R.drawable.icon_stretching
-                                    "strongman" -> R.drawable.icon_strongman
-                                    else -> R.drawable.icon_strongman
-                                }
-                                Image(
-                                    painter = painterResource(id = iconResId),
-                                    contentDescription = "Workout Icon",
-                                    colorFilter = ColorFilter.tint(
-                                        MaterialTheme.colorScheme.primary
-                                        ),
-                                    modifier = Modifier
-                                        .size(60.dp)
-                                )
+                                showTypeIcon(workout, 60, MaterialTheme.colorScheme.primary)
                             },
                             actions = {
                                 IconButton(
@@ -466,26 +441,15 @@ fun WorkoutScreen() {
                                     .verticalScroll(scrollState)
                                     .weight(1f),
                             ){
-                                val difficultyIconResId = when (workout.difficulty) {
-                                    difficulties[0] -> R.drawable.easy
-                                    difficulties[1] -> R.drawable.medium
-                                    difficulties[2] -> R.drawable.hard
-                                    else -> R.drawable.emh
+                                Row{
+                                    showDifficultyIcon(workout, difficulties = difficulties, size = 50)
+
+                                    showEquipmentIcon(workout, 40)
                                 }
 
-                                Image(
-                                    painter = painterResource(difficultyIconResId),
-                                    contentDescription = "Difficulty Icon",
-                                    colorFilter = ColorFilter.tint(
-                                        com.example.traintracks.screens.getDifficultyColor(
-                                            workout.difficulty
-                                        )
-                                    ),
-                                    modifier = Modifier.size(50.dp)
-                                )
 
                                 Text(
-                                    text = "${workout.type}",
+                                    text = "${workout.type.toTitleCase()}",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = getTypeColor(workout.type)
@@ -494,7 +458,7 @@ fun WorkoutScreen() {
                                 Spacer(modifier = Modifier.height(4.dp))
 
                                 Text(
-                                    text = "Difficulty: ${workout.difficulty}",
+                                    text = "Difficulty: ${workout.difficulty.toTitleCase()}",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.secondary
@@ -503,7 +467,7 @@ fun WorkoutScreen() {
                                 Spacer(modifier = Modifier.height(4.dp))
 
                                 Text(
-                                    text = "Muscle Group: ${workout.muscle}",
+                                    text = "Muscle Group: ${workout.muscle.toTitleCase()}",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.secondary,
@@ -512,7 +476,7 @@ fun WorkoutScreen() {
                                 Spacer(modifier = Modifier.height(4.dp))
 
                                 Text(
-                                    text = "Equipment: ${workout.equipment}",
+                                    text = "Equipment: ${workout.equipment.toTitleCase()}",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.secondary,
@@ -644,7 +608,7 @@ fun WorkoutScreen() {
 
     Box(modifier = Modifier.fillMaxSize()){
         if(isLoading){
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            //CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         } else {
             Column{
                 CustomAppBar(
@@ -747,29 +711,14 @@ fun WorkoutScreen() {
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ){
                                         Column(modifier = Modifier.width(60.dp)) {
-                                            val iconResId = when (workout.type) {
-                                                "cardio" -> icon_cardio
-                                                "olympic_weightlifting" -> icon_olympic_weighlifting
-                                                "plyometrics" -> icon_plyometrics
-                                                "powerlifting" -> icon_powerlifting
-                                                "strength" -> strength
-                                                "stretching" -> icon_stretching
-                                                "strongman" -> icon_strongman
-                                                else -> icon_strongman
-                                            }
-                                            Image(
-                                                painter = painterResource(id = iconResId),
-                                                contentDescription = "Workout Icon",
-                                                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.secondary),
-                                                modifier = Modifier
-                                                    .size(60.dp)
-                                                    .align(Alignment.CenterHorizontally)
-                                            )
+
+                                            showTypeIcon(workout, 60, MaterialTheme.colorScheme.primary)
+
                                         }
                                         Column(modifier = Modifier.width(245.dp)) {
 
                                             Text(
-                                                text = workout.name,
+                                                text = "${workout.name.toTitleCase() }",
                                                 fontSize = 24.sp,
                                                 fontWeight = FontWeight.ExtraBold,
                                                 color = MaterialTheme.colorScheme.primary,
@@ -780,7 +729,7 @@ fun WorkoutScreen() {
                                             Spacer(modifier = Modifier.height(4.dp))
 
                                             Text(
-                                                text = "${workout.muscle.lowercase().replaceFirstChar { it.uppercase() }}",
+                                                text = "${workout.muscle.toTitleCase() }",
                                                 fontSize = 18.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = MaterialTheme.colorScheme.secondary
@@ -788,69 +737,11 @@ fun WorkoutScreen() {
 
                                             Spacer(modifier = Modifier.height(4.dp))
 
-                                            val difficultyIconResId = when (workout.difficulty) {
-                                                difficulties[0] -> R.drawable.easy
-                                                difficulties[1] -> R.drawable.medium
-                                                difficulties[2] -> R.drawable.hard
-                                                else -> R.drawable.emh
-                                            }
-
                                             Row{
-                                                Image(
-                                                    painter = painterResource(difficultyIconResId),
-                                                    contentDescription = "Difficulty Icon",
-                                                    colorFilter = ColorFilter.tint(
-                                                        com.example.traintracks.screens.getDifficultyColor(
-                                                            workout.difficulty
-                                                        )
-                                                    ),
-                                                    modifier = Modifier.size(50.dp)
-                                                )
 
-                                                val equipmentIconResId: Int? = when (workout.equipment) {
-                                                    "machine" -> equipment_machine
-                                                    "kettlebells" -> equipment_kettlebell
-                                                    "dumbbell" -> equipment_dumbbell
-                                                    "barbell" -> equipment_barbell
-                                                    else -> null
-                                                }
-                                                if (equipmentIconResId != null) {
-                                                    Image(
-                                                        painter = painterResource(equipmentIconResId),
-                                                        contentDescription = "Equipment Icon",
-                                                        colorFilter = ColorFilter.tint(
-                                                            MaterialTheme.colorScheme.primary
-                                                        ),
-                                                        modifier = Modifier.size(50.dp)
-                                                    )
-                                                } else {
-                                                    val workoutName = workout.name
-                                                    val iconResId = when {
-                                                        workoutName?.contains("treadmill", ignoreCase = true) == true -> equipment_treadmill
-                                                        workoutName?.contains("bicycling", ignoreCase = true) == true -> equipment_bicycle
-                                                        workoutName?.contains("skating", ignoreCase = true) == true -> equipment_skating
-                                                        workoutName?.contains("Jumping rope", ignoreCase = true) == true -> equipment_jumprope
-                                                        workoutName?.contains("Rickshaw", ignoreCase = true) == true -> equipment_rickshaw
-                                                        workoutName?.contains("Plate", ignoreCase = true) == true -> equipment_weightplate
-                                                        // Add more cases for other string matches here
-                                                        else -> null // Set iconResId to null when there's no match
-                                                    }
+                                                showDifficultyIcon(workout, difficulties = difficulties,size =50)
 
-                                                    if (iconResId != null) {
-                                                        Image(
-                                                            painter = painterResource(iconResId),
-                                                            contentDescription = "Equipment Icon",
-                                                            colorFilter = ColorFilter.tint(
-                                                                MaterialTheme.colorScheme.primary
-                                                            ),
-                                                            modifier = Modifier.size(50.dp)
-                                                        )
-                                                    } else {
-                                                        // Handle the case where there's no matching icon based on workout.name
-                                                        // Example:
-                                                        // Text("No Icon")
-                                                    }
-                                                }
+                                                showEquipmentIcon(workout, 40)
 
                                             }
                                         }
@@ -859,7 +750,7 @@ fun WorkoutScreen() {
                                                 colors = CheckboxDefaults.colors(
                                                     checkedColor = getDifficultyColor(workout.difficulty), // Color when the Checkbox is checked
                                                     uncheckedColor = MaterialTheme.colorScheme.primary, // Color when the Checkbox is unchecked
-                                                    checkmarkColor = MaterialTheme.colorScheme.primary // Color of the checkmark
+                                                    checkmarkColor = MaterialTheme.colorScheme.background // Color of the checkmark
                                                 ),
                                                 checked = selectedWorkouts.contains(workout.id),
                                                 onCheckedChange = { isChecked ->
@@ -880,7 +771,93 @@ fun WorkoutScreen() {
                     }
                 }
             }
-
         }
     }
+}
+
+@Composable
+fun showEquipmentIcon(workout: Workout, size: Int) {
+    val equipmentIconResId: Int? = when (workout.equipment) {
+        "machine" -> equipment_machine
+        "kettlebells" -> equipment_kettlebell
+        "dumbbell" -> equipment_dumbbell
+        "barbell" -> equipment_barbell
+        else -> null
+    }
+    if (equipmentIconResId != null) {
+        Image(
+            painter = painterResource(equipmentIconResId),
+            contentDescription = "Equipment Icon",
+            colorFilter = ColorFilter.tint(
+                MaterialTheme.colorScheme.primary
+            ),
+            modifier = Modifier.size(50.dp)
+        )
+    } else {
+        val workoutName = workout.name
+        val iconResId = when {
+            workoutName?.contains("treadmill", ignoreCase = true) == true -> equipment_treadmill
+            workoutName?.contains("bicycling", ignoreCase = true) == true -> equipment_bicycle
+            workoutName?.contains("skating", ignoreCase = true) == true -> equipment_skating
+            workoutName?.contains("Jumping rope", ignoreCase = true) == true -> equipment_jumprope
+            workoutName?.contains("Rickshaw", ignoreCase = true) == true -> equipment_rickshaw
+            workoutName?.contains("Plate", ignoreCase = true) == true -> equipment_weightplate
+            // Add more cases for other string matches here
+            else -> null // Set iconResId to null when there's no match
+        }
+
+        if (iconResId != null) {
+            Image(
+                painter = painterResource(iconResId),
+                contentDescription = "Equipment Icon",
+                colorFilter = ColorFilter.tint(
+                    MaterialTheme.colorScheme.primary
+                ),
+                modifier = Modifier.size(size.dp)
+            )
+        } else {
+            // Handle the case where there's no matching icon based on workout.name
+            // Example:
+            // Text("No Icon")
+        }
+    }
+}
+
+@Composable
+fun showTypeIcon(workout: Workout, size: Int, color: Color) {
+    val iconResId = when (workout.type) {
+        "cardio" -> R.drawable.icon_cardio
+        "olympic_weightlifting" -> R.drawable.icon_olympic_weighlifting
+        "plyometrics" -> R.drawable.icon_plyometrics
+        "powerlifting" -> R.drawable.icon_powerlifting
+        "strength" -> R.drawable.strength
+        "stretching" -> R.drawable.icon_stretching
+        "strongman" -> R.drawable.icon_strongman
+        else -> R.drawable.icon_strongman
+    }
+    Image(
+        painter = painterResource(id = iconResId),
+        contentDescription = "Workout Icon",
+        colorFilter = ColorFilter.tint(
+            color
+        ),
+        modifier = Modifier
+            .size(size.dp)
+    )
+}
+
+@Composable
+fun showDifficultyIcon(workout: Workout, size: Int, difficulties: Array<String>?) {
+    val difficultyIconResId = when (workout.difficulty) {
+        difficulties?.getOrNull(0) -> R.drawable.easy
+        difficulties?.getOrNull(1) -> R.drawable.medium
+        difficulties?.getOrNull(2) -> R.drawable.hard
+        else -> R.drawable.emh
+    }
+
+    Image(
+        painter = painterResource(difficultyIconResId),
+        contentDescription = "Difficulty Icon",
+        modifier = Modifier.size(size.dp)
+    )
 }
