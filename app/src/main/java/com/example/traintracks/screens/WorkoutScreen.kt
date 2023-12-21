@@ -1,7 +1,10 @@
 package com.example.traintracks.screens
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.Intent
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.BorderStroke
@@ -46,10 +49,19 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.traintracks.R
 import com.example.traintracks.SearchApiService
+import com.example.traintracks.YouTubeApiService
+import com.google.android.gms.common.api.internal.BackgroundDetector.initialize
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.text.SimpleDateFormat
@@ -72,6 +84,8 @@ fun WorkoutScreen() {
         db = FirebaseDatabase.getInstance().getReference("users/$userId/workouts")
     }
 
+    var showYouTubeDialog by remember { mutableStateOf(false) }
+    var youTubeVideoId by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(true) }
     var workoutList by remember { mutableStateOf<List<Workout>>(emptyList()) }
     var showDialog by remember { mutableStateOf(false) }
@@ -445,6 +459,32 @@ fun WorkoutScreen() {
                                     showDifficultyIcon(workout, difficulties = difficulties, size = 50)
 
                                     showEquipmentIcon(workout, 40)
+
+                                    // YouTube icon below the checkbox
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_youtube), // replace with your YouTube icon resource
+                                        contentDescription = "Watch Video",
+                                        modifier = Modifier
+                                            .size(35.dp)
+                                            .padding(top = 8.dp)
+                                            .clickable {
+                                                CoroutineScope(Dispatchers.IO).launch {
+                                                    val videoId = searchYouTube(workout.name, "AIzaSyB_O7HAR-kuiAHEZf6VLNuOTWRi442Yza4")
+                                                    withContext(Dispatchers.Main) {
+                                                        if (videoId.isNotEmpty()) {
+                                                            youTubeVideoId = videoId
+                                                            showYouTubeDialog = true
+                                                        } else {
+                                                            // Handle case where no video is found
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                    )
+
+                                    if (showYouTubeDialog) {
+                                        YouTubeDialog(videoId = youTubeVideoId, onDismiss = { showYouTubeDialog = false })
+                                    }
                                 }
 
 
@@ -763,6 +803,32 @@ fun WorkoutScreen() {
                                                     selectedWorkouts = updatedSelection
                                                 }
                                             )
+
+                                            // YouTube icon below the checkbox
+                                            Icon(
+                                                painter = painterResource(id = R.drawable.ic_youtube), // replace with your YouTube icon resource
+                                                contentDescription = "Watch Video",
+                                                modifier = Modifier
+                                                    .size(35.dp)
+                                                    .padding(top = 8.dp)
+                                                    .clickable {
+                                                        CoroutineScope(Dispatchers.IO).launch {
+                                                            val videoId = searchYouTube(workout.name, "AIzaSyB_O7HAR-kuiAHEZf6VLNuOTWRi442Yza4")
+                                                            withContext(Dispatchers.Main) {
+                                                                if (videoId.isNotEmpty()) {
+                                                                    youTubeVideoId = videoId
+                                                                    showYouTubeDialog = true
+                                                                } else {
+                                                                    // Handle case where no video is found
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                            )
+
+                                            if (showYouTubeDialog) {
+                                                YouTubeDialog(videoId = youTubeVideoId, onDismiss = { showYouTubeDialog = false })
+                                            }
                                         }
                                     }
                                 }
@@ -861,3 +927,50 @@ fun showDifficultyIcon(workout: Workout, size: Int, difficulties: Array<String>?
         modifier = Modifier.size(size.dp)
     )
 }
+
+@Composable
+fun YouTubeDialog(videoId: String, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    Dialog(onDismissRequest = onDismiss) {
+        // Request audio focus
+        if (requestAudioFocus(context)) {
+            AndroidView(factory = {
+                YouTubePlayerView(it).apply {
+                    addYouTubePlayerListener(object : AbstractYouTubePlayerListener() {
+                        override fun onReady(youTubePlayer: YouTubePlayer) {
+                            youTubePlayer.loadVideo(videoId, 0f)
+                        }
+                    })
+                }
+            })
+        }
+    }
+}
+
+suspend fun searchYouTube(workoutName: String, apiKey: String): String {
+    val retrofit = Retrofit.Builder()
+        .baseUrl("https://www.googleapis.com/youtube/v3/")
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    val youTubeApiService = retrofit.create(YouTubeApiService::class.java)
+    val response = youTubeApiService.searchVideos(query = workoutName, apiKey = apiKey)
+
+    return response.items.firstOrNull()?.id?.videoId ?: ""
+}
+
+fun requestAudioFocus(context: Context): Boolean {
+    val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    val focusRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+            .setOnAudioFocusChangeListener { }
+            .build()
+        audioManager.requestAudioFocus(focusRequest)
+    } else {
+        @Suppress("DEPRECATION")
+        audioManager.requestAudioFocus({ }, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN)
+    }
+    return focusRequest == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+}
+
+

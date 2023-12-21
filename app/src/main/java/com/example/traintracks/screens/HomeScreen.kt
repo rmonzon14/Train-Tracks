@@ -1,5 +1,6 @@
 package com.example.traintracks.screens
 
+import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.compose.foundation.Image
@@ -87,10 +88,6 @@ val userId = currentUser?.uid ?: ""
 @Composable
 fun HomeScreen(navController: NavHostController) {
     val sharedViewModel: SharedViewModel = viewModel()
-    var difficulties = sharedViewModel.difficulties.observeAsState().value
-    var muscles = sharedViewModel.muscles.observeAsState().value
-    var types = sharedViewModel.types.observeAsState().value
-
     var recommendedWorkoutsByMuscleGroup by remember { mutableStateOf<Map<String, List<Workout>>>(mapOf()) }
     val snackbarHostState = remember { SnackbarHostState() }
     val currentContext = LocalContext.current
@@ -111,105 +108,103 @@ fun HomeScreen(navController: NavHostController) {
     var apiService = retrofit.create(SearchApiService::class.java)
 
     LaunchedEffect(Unit) {
-        initializeData(apiService) { fetchedDifficulties, fetchedMuscles, fetchedTypes ->
-            // Update LiveData in SharedViewModel
-            sharedViewModel.apply {
-                _difficulties.value = fetchedDifficulties
-                _muscles.value = fetchedMuscles
-                _types.value = fetchedTypes
-            }
-            apiService = apiService
-            difficulties = fetchedDifficulties
-            muscles = fetchedMuscles
-            types = fetchedTypes
-        }
-        randomMuscle = muscles?.randomOrNull() ?: ""
-        randomType = types?.randomOrNull() ?: ""
-        randomDifficulty = difficulties?.randomOrNull() ?: ""
+        initializeDataIfNeeded(currentContext, apiService, sharedViewModel)
+        sharedViewModel.initializeData(apiService)
+    }
 
-        // Fetch all items from Firebase /data path
-        val dataRef = FirebaseDatabase.getInstance().getReference("/data")
-        dataRef.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val items = snapshot.children.mapNotNull { it.getValue(Workout::class.java) }
+    var difficulties = sharedViewModel.difficulties.observeAsState().value
+    var muscles = sharedViewModel.muscles.observeAsState().value
+    var types = sharedViewModel.types.observeAsState().value
 
-                // Randomly select muscle, type, and difficulty
-                randomMuscle = muscles?.randomOrNull() ?: ""
-                randomType = types?.randomOrNull() ?: ""
-                randomDifficulty = difficulties?.randomOrNull() ?: ""
+    // Check if all data is loaded
+    val isDataLoaded = muscles?.isNotEmpty() == true &&
+            types?.isNotEmpty() == true &&
+            difficulties?.isNotEmpty() == true
 
-                // Count items for each category
-                val typeCount = items.count { it.type == randomType }
-                val muscleCount = items.count { it.muscle == randomMuscle }
-                val difficultyCount = items.count { it.difficulty == randomDifficulty }
+    LaunchedEffect(isDataLoaded) {
+        if (isDataLoaded) {
+            // Randomly select muscle, type, and difficulty
+            randomMuscle = muscles?.randomOrNull() ?: ""
+            randomType = types?.randomOrNull() ?: ""
+            randomDifficulty = difficulties?.randomOrNull() ?: ""
 
-                // Calculate max offsets
-                val maxTypeOffset = if (typeCount > 10) typeCount - 10 else 0
-                val maxMuscleOffset = if (muscleCount > 10) muscleCount - 10 else 0
-                val maxDifficultyOffset = if (difficultyCount > 10) difficultyCount - 10 else 0
+            val dataRef = FirebaseDatabase.getInstance().getReference("/data")
+            val logsRef = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
 
-                // Generate random offsets
-                val randomTypeOffset = (0..maxTypeOffset).random()
-                val randomMuscleOffset = (0..maxMuscleOffset).random()
-                val randomDifficultyOffset = (0..maxDifficultyOffset).random()
+            logsRef.addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val fetchedLogs = snapshot.children.mapNotNull { it.getValue(WorkoutLog::class.java) }
 
-                // Use random offsets for API calls
-                fetchWorkouts(apiService, null, randomMuscle, null, null, randomMuscleOffset) { workouts ->
-                    workoutsByMuscle = workouts
-                }
+                    // Filter logs for the last 30 days
+                    val logsWithinLast30Days = filterLogsForLast30Days(fetchedLogs)
+                    workoutLogs.value = logsWithinLast30Days
 
-                fetchWorkouts(apiService, null, null, randomType, null, randomTypeOffset) { workouts ->
-                    workoutsByType = workouts
-                }
+                    dataRef.addListenerForSingleValueEvent(object : ValueEventListener {
+                        override fun onDataChange(dataSnapshot: DataSnapshot) {
+                            val items = dataSnapshot.children.mapNotNull { it.getValue(Workout::class.java) }
 
-                fetchWorkouts(apiService, null, null, null, randomDifficulty, randomDifficultyOffset) { workouts ->
-                    workoutsByDifficulty = workouts
-                }
-            }
+                            findAllLeastEngagedMuscleGroups(calculateMuscleGroupPercentages(workoutLogs.value)).forEach { muscleGroup ->
+                                val muscleCount = items.count { it.muscle == muscleGroup }
+                                val maxMuscleOffset = if (muscleCount > 10) muscleCount - 10 else 0
+                                val randomMuscleOffset = (0..maxMuscleOffset).random()
 
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("Firebase", "Failed to fetch data", error.toException())
-            }
-        })
-
-        val logsRef = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
-        logsRef.addValueEventListener(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val fetchedLogs = snapshot.children.mapNotNull { it.getValue(WorkoutLog::class.java) }
-
-                // Filter logs for the last 30 days
-                val logsWithinLast30Days = filterLogsForLast30Days(fetchedLogs)
-                workoutLogs.value = logsWithinLast30Days
-
-                dataRef.addListenerForSingleValueEvent(object : ValueEventListener {
-                    override fun onDataChange(dataSnapshot: DataSnapshot) {
-                        val items = dataSnapshot.children.mapNotNull { it.getValue(Workout::class.java) }
-
-                        findAllLeastEngagedMuscleGroups(calculateMuscleGroupPercentages(workoutLogs.value)).forEach { muscleGroup ->
-                            val muscleCount = items.count { it.muscle == muscleGroup }
-                            val maxMuscleOffset = if (muscleCount > 10) muscleCount - 10 else 0
-                            val randomMuscleOffset = (0..maxMuscleOffset).random()
-
-                            fetchWorkouts(apiService, null, muscleGroup, null, null, randomMuscleOffset) { workouts ->
-                                recommendedWorkoutsByMuscleGroup = recommendedWorkoutsByMuscleGroup.toMutableMap().apply {
-                                    put(muscleGroup, workouts)
+                                fetchWorkouts(apiService, null, muscleGroup, null, null, randomMuscleOffset) { workouts ->
+                                    recommendedWorkoutsByMuscleGroup = recommendedWorkoutsByMuscleGroup.toMutableMap().apply {
+                                        put(muscleGroup, workouts)
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    override fun onCancelled(dataError: DatabaseError) {
-                        Log.e("Firebase", "Failed to fetch data", dataError.toException())
-                    }
-                })
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                CoroutineScope(Dispatchers.Main).launch {
-                    snackbarHostState.showSnackbar("Error: Unable to fetch workout logs")
+                        override fun onCancelled(dataError: DatabaseError) {
+                            Log.e("Firebase", "Failed to fetch data", dataError.toException())
+                        }
+                    })
                 }
-            }
-        })
+
+                override fun onCancelled(error: DatabaseError) {
+                    CoroutineScope(Dispatchers.Main).launch {
+                        snackbarHostState.showSnackbar("Error: Unable to fetch workout logs")
+                    }
+                }
+            })
+
+            dataRef.addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val items = snapshot.children.mapNotNull { it.getValue(Workout::class.java) }
+
+                    // Count items for each category
+                    val typeCount = items.count { it.type == randomType }
+                    val muscleCount = items.count { it.muscle == randomMuscle }
+                    val difficultyCount = items.count { it.difficulty == randomDifficulty }
+
+                    // Calculate max offsets
+                    val maxTypeOffset = if (typeCount > 10) typeCount - 10 else 0
+                    val maxMuscleOffset = if (muscleCount > 10) muscleCount - 10 else 0
+                    val maxDifficultyOffset = if (difficultyCount > 10) difficultyCount - 10 else 0
+
+
+
+                    // Fetch data for random categories
+                    fetchWorkouts(apiService, null, randomMuscle, null, null, (0..maxMuscleOffset).random()) {
+                        workoutsByMuscle = it
+                        Log.d("CHECK_POINT", "Fetched Muscle Workouts: ${it.size} muscle: $randomMuscle muscles: $muscles")
+                    }
+                    fetchWorkouts(apiService, null, null, randomType, null, (0..maxTypeOffset).random()) {
+                        workoutsByType = it
+                        Log.d("CHECK_POINT", "Fetched Type Workouts: ${it.size} type: $randomType types: $types")
+                    }
+                    fetchWorkouts(apiService, null, null, null, randomDifficulty, (0..maxDifficultyOffset).random()) {
+                        workoutsByDifficulty = it
+                        Log.d("CHECK_POINT", "Fetched Difficulty Workouts: ${it.size} difficulty: $randomDifficulty difficulties: $difficulties")
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Log.e("CHECK_POINT", "Failed to fetch data", error.toException())
+                }
+            })
+        }
     }
 
     Box(
@@ -240,7 +235,7 @@ fun HomeScreen(navController: NavHostController) {
                 contentDescription = "",
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
-                    .size(105.dp)
+                    .size(75.dp)
             )
 
             Text(
@@ -294,17 +289,41 @@ fun HomeScreen(navController: NavHostController) {
                 Spacer(Modifier.height(16.dp))
 
                 recommendedWorkoutsByMuscleGroup.forEach { (muscleGroup, workouts) ->
-                    Text(muscleGroup.toTitleCase(), style = MaterialTheme.typography.headlineSmall)
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(workouts) { workout ->
-                            WorkoutCard(workout = workout, difficulties = difficulties, onWorkoutClick = {
-                                selectedWorkout = workout
-                                showDialog = true
-                            })
+                    if (!muscleGroup.isNullOrEmpty()) {
+                        Log.d("CHECK_POINT", "%%%muslceGroup%%%$muscleGroup###workouts###: $workouts")
+                        Text(muscleGroup.toTitleCase(), style = MaterialTheme.typography.headlineSmall)
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(workouts) { workout ->
+                                WorkoutCard(workout = workout, difficulties = difficulties, onWorkoutClick = {
+                                    selectedWorkout = workout
+                                    showDialog = true
+                                })
+                            }
+                        }
+                        Spacer(Modifier.height(16.dp))
+                    }
+                }
+
+                @Composable
+                fun RandomCategoryRow(categoryName: String, workouts: List<Workout>) {
+                    if (workouts.isNotEmpty()) {
+                        Text("$categoryName".toTitleCase(), style = MaterialTheme.typography.headlineSmall)
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(workouts) { workout ->
+                                WorkoutCard(workout, difficulties, onWorkoutClick = {
+                                    selectedWorkout = workout
+                                    showDialog = true
+                                })
+                            }
                         }
                     }
-                    Spacer(Modifier.height(16.dp))
                 }
+
+                Text("Random Workouts", style = MaterialTheme.typography.headlineSmall)
+
+                RandomCategoryRow("Muscle: $randomMuscle", workoutsByMuscle)
+                RandomCategoryRow("Type: $randomType", workoutsByType)
+                RandomCategoryRow("Difficulty: $randomDifficulty", workoutsByDifficulty)
 
                 // Workout details dialog
                 if (showDialog && selectedWorkout != null && difficulties != null) {
@@ -314,65 +333,6 @@ fun HomeScreen(navController: NavHostController) {
                         difficulties = difficulties,
                         snackbarHostState
                     )
-                }
-
-                Text(
-                    text = randomMuscle.toTitleCase(),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = Color.White
-                )
-
-                LazyRow(
-                    modifier = Modifier.padding(top = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(workoutsByMuscle) { workout ->
-                        WorkoutCard(workout = workout, difficulties = difficulties, onWorkoutClick = {
-                            if (workout != null) {
-                                selectedWorkout = workout
-                                showDialog = true
-                            } else {
-                                Log.e("HomeScreen", "Selected workout is null")
-                            }
-                        })
-                    }
-                }
-
-
-                Text(
-                    text = randomType.toTitleCase(),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = Color.White
-                )
-
-                LazyRow(
-                    modifier = Modifier.padding(top = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(workoutsByType) { workout ->
-                        WorkoutCard(workout = workout, difficulties = difficulties, onWorkoutClick = {
-                            selectedWorkout = workout
-                            showDialog = true
-                        })
-                    }
-                }
-
-                Text(
-                    text = randomDifficulty.toTitleCase(),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = Color.White
-                )
-
-                LazyRow(
-                    modifier = Modifier.padding(top = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(workoutsByDifficulty) { workout ->
-                        WorkoutCard(workout = workout, difficulties = difficulties, onWorkoutClick = {
-                            selectedWorkout = workout
-                            showDialog = true
-                        })
-                    }
                 }
             }
 
@@ -525,7 +485,11 @@ fun WorkoutDetailsDialog(
                                         .size(30.dp)
                                         .clickable {
                                             savedFirebaseId?.let { firebaseId ->
-                                                onDeleteWorkout(firebaseId, userId, snackbarHostState)
+                                                onDeleteWorkout(
+                                                    firebaseId,
+                                                    userId,
+                                                    snackbarHostState
+                                                )
                                                 isWorkoutSaved = false
                                             }
                                         }
@@ -692,35 +656,19 @@ fun onDeleteWorkout(workoutId: String, userId: String, snackbarHostState: Snackb
 }
 
 
-suspend fun initializeData(apiService: SearchApiService, onSuccess: (Array<String>, Array<String>, Array<String>) -> Unit) {
-    val dbRef = FirebaseDatabase.getInstance().getReference("/data")
+// Add this function in HomeScreen or as a top-level function
+fun initializeDataIfNeeded(context: Context, apiService: SearchApiService, sharedViewModel: SharedViewModel) {
+    val prefs = context.getSharedPreferences("AppPrefs", Context.MODE_PRIVATE)
+    val isInitialized = prefs.getBoolean("isDataInitialized", false)
 
-    dbRef.get().addOnSuccessListener { dataSnapshot ->
-        // If data is empty, fetch and store data
-        if (!dataSnapshot.exists()) {
-            CoroutineScope(Dispatchers.IO).launch {
-                fetchAndStoreData(apiService, dbRef)
+    if (!isInitialized) {
+        sharedViewModel.initializeData(apiService)
+
+            // Save flag in SharedPreferences
+            with(prefs.edit()) {
+                putBoolean("isDataInitialized", true)
+                apply()
             }
-        }
-
-        // Collect unique values for types, muscles, and difficulties
-        val fetchedDifficulties = mutableSetOf<String>()
-        val fetchedMuscles = mutableSetOf<String>()
-        val fetchedTypes = mutableSetOf<String>()
-
-        dataSnapshot.children.forEach { childSnapshot ->
-            val workout = childSnapshot.getValue(Workout::class.java)
-            workout?.let {
-                fetchedDifficulties.add(it.difficulty)
-                fetchedMuscles.add(it.muscle)
-                fetchedTypes.add(it.type)
-            }
-        }
-
-        onSuccess(fetchedDifficulties.toTypedArray(), fetchedMuscles.toTypedArray(), fetchedTypes.toTypedArray())
-
-    }.addOnFailureListener { exception ->
-        Log.e("Firebase", "Error getting data", exception)
     }
 }
 
@@ -780,3 +728,21 @@ suspend fun fetchAndStoreData(apiService: SearchApiService, dbRef: DatabaseRefer
         offset += 10
     }
 }
+
+// This function updates the UI state based on data in SharedViewModel
+@Composable
+private fun updateUIState(viewModel: SharedViewModel, state: HomeScreenState) {
+    // You can update the state based on the data in the ViewModel
+    viewModel.difficulties.observeAsState().value?.let {
+        state.difficulties = it
+    }
+    viewModel.muscles.observeAsState().value?.let {
+        state.muscles = it
+    }
+    viewModel.types.observeAsState().value?.let {
+        state.types = it
+    }
+}
+
+
+

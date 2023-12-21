@@ -1,5 +1,6 @@
 package com.example.traintracks.screens
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +19,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -57,6 +60,8 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.MutableState
@@ -76,6 +81,10 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.semantics.SemanticsProperties.ImeAction
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,6 +94,7 @@ fun SettingsScreen() {
     val logsDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/logs")
     val logId = logsDbRef.push().key ?: return
     val notesDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/notes")
+    var fetchError by remember { mutableStateOf<String?>(null) }
     var newWorkoutName by remember { mutableStateOf("") }
     var newWorkoutDate by remember { mutableStateOf("") }
     var newWorkoutType by remember { mutableStateOf("") }
@@ -96,9 +106,8 @@ fun SettingsScreen() {
     var showNoteField by remember { mutableStateOf(false) }
     var noteText by remember { mutableStateOf("") }
     var dropDownTypeText by remember { mutableStateOf("") }
-    var dropDownMuscleText by remember { mutableStateOf("") }
     var expandedTypes by remember { mutableStateOf(false) }
-    var expandedMuscles by remember { mutableStateOf(false) }
+    var expandedWorkoutNames by remember { mutableStateOf(false) }
     var workoutLogs by remember { mutableStateOf<List<WorkoutLog>>(emptyList()) }
     var notesData by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -117,6 +126,7 @@ fun SettingsScreen() {
     }
     val sharedViewModel: SharedViewModel = viewModel()
     val types by sharedViewModel.types.observeAsState(arrayOf())
+    val snackbarHostState = remember { SnackbarHostState() }
 
     @Composable
     fun CustomAppBar(
@@ -199,7 +209,35 @@ fun SettingsScreen() {
 
 
     if (showAddWorkoutDialog) {
-        // Function to reset the dialog fields
+        // State for workout names fetched from Firebase
+        var workoutNames by remember { mutableStateOf<List<String>>(emptyList()) }
+
+        fun fetchAndDisplayWorkoutNames() {
+            val dataDbRef = FirebaseDatabase.getInstance().getReference("data")
+            dataDbRef.addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val namesList = mutableListOf<String>()
+                    snapshot.children.forEach { child ->
+                        val type = child.child("type").getValue(String::class.java)
+                        if (type == newWorkoutType) {
+                            val name = child.child("name").getValue(String::class.java)
+                            name?.let { namesList.add(it) }
+                        }
+                    }
+                    workoutNames = namesList
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    // Log and handle the error
+                    Log.e("FirebaseError", "Error fetching workout names: ${error.message}")
+                    fetchError = "Error fetching workout names. Please try again."
+                }
+            })
+        }
+
+
+
+        // Reset the dialog fields
         fun resetAddWorkoutDialogFields() {
             newWorkoutName = ""
             newWorkoutDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
@@ -211,13 +249,14 @@ fun SettingsScreen() {
             newWorkoutReps = ""
             noteText = ""
             showNoteField = false
+            workoutNames = emptyList()
         }
 
         resetAddWorkoutDialogFields()
 
         AlertDialog(
             onDismissRequest = { showAddWorkoutDialog = false },
-            title = { Text("Add New Workout") },
+            title = { Text("Log Workout") },
             text = {
                 Column(
                     Modifier
@@ -225,11 +264,6 @@ fun SettingsScreen() {
                         .imePadding()
                         .requiredHeight(height = 395.dp)
                 ) {
-                    // Common fields
-                    TextField(value = newWorkoutName, onValueChange = { newWorkoutName = it }, label = { Text("Workout Name") })
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
                     TextField(value = newWorkoutDate, onValueChange = { newWorkoutDate = it }, label = { Text("Date") })
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -241,10 +275,27 @@ fun SettingsScreen() {
                         onItemSelected = { selected ->
                             dropDownTypeText = selected
                             newWorkoutType = selected
+                            // Fetch workout names based on selected type from Firebase
+                            fetchAndDisplayWorkoutNames() // Fetch names when type changes
+
                         },
                         expanded = expandedTypes,
-                        onExpandedChange = { expandedTypes = it }
+                        onExpandedChange = { expandedTypes = it },
+                        label = "Workout Type"
                     )
+
+                    // Workout Name dropdown, shown only when a type is selected
+                    if (newWorkoutType.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        CustomDropDownMenu(
+                            selectedText = newWorkoutName,
+                            group = workoutNames.toTypedArray(),
+                            onItemSelected = { selected -> newWorkoutName = selected },
+                            expanded = expandedWorkoutNames,
+                            onExpandedChange = { expandedWorkoutNames = it },
+                            label = "Workout Name"
+                        )
+                    }
 
                     // Conditional fields based on workout type
                     when (newWorkoutType) {
@@ -258,7 +309,105 @@ fun SettingsScreen() {
                             TextField(
                                 value = newWorkoutDuration,
                                 onValueChange = { newWorkoutDuration = it },
-                                label = { Text("Duration (HH:MM:SS)") }
+                                label = { Text("Duration (HH:MM:SS)") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions.Default.copy(
+                                    imeAction = androidx.compose.ui.text.input.ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = {
+                                        var isInputValid = true
+                                        val errorMessages = mutableListOf<String>()
+
+                                        // Validate Name
+                                        if (newWorkoutName.isBlank()) {
+                                            errorMessages.add("Workout name cannot be blank.")
+                                            isInputValid = false
+                                        }
+
+                                        // Validate Date
+                                        val (isDateValid, dateErrorMsg) = isValidDate(newWorkoutDate)
+                                        if (!isDateValid) {
+                                            errorMessages.add(dateErrorMsg)
+                                            isInputValid = false
+                                        }
+
+                                        // Validate Duration for certain workout types
+                                        if (newWorkoutType in listOf("cardio", "stretching") && !isValidDuration(newWorkoutDuration).first) {
+                                            errorMessages.add(isValidDuration(newWorkoutDuration).second)
+                                            isInputValid = false
+                                        }
+
+                                        // Validate Sets and Reps for certain workout types
+                                        if (newWorkoutType in listOf("olympic_weightlifting", "powerlifting", "strongman", "strength", "plyometrics")) {
+                                            val (isSetsValid, setsErrorMsg) = isValidIntField("", newWorkoutSets, "Sets")
+                                            if (!isSetsValid) {
+                                                errorMessages.add(setsErrorMsg)
+                                                isInputValid = false
+                                            }
+
+                                            val (isRepsValid, repsErrorMsg) = isValidIntField("", newWorkoutReps, "Reps")
+                                            if (!isRepsValid) {
+                                                errorMessages.add(repsErrorMsg)
+                                                isInputValid = false
+                                            }
+                                        }
+
+                                        // Validate Note
+                                        if (showNoteField && noteText.isBlank()) {
+                                            errorMessages.add("Note cannot be blank.")
+                                            isInputValid = false
+                                        }
+
+                                        if (!isInputValid) {
+                                            // Display the first error message
+                                            errorMessage.value = errorMessages.firstOrNull()
+                                            return@KeyboardActions
+                                        }
+
+                                        // Proceed to save the workout log, notes, and points
+                                        val newWorkoutLog = WorkoutLog(
+                                            id = logId,
+                                            name = newWorkoutName,
+                                            type = newWorkoutType,
+                                            muscle = newWorkoutMuscle,
+                                            difficulty = "user entry", // Default difficulty
+                                            duration = newWorkoutDuration,
+                                            distance = newWorkoutDistance.ifBlank { null },
+                                            sets = newWorkoutSets,
+                                            reps = newWorkoutReps,
+                                            date = newWorkoutDate
+                                        )
+
+                                        logsDbRef.child(logId).setValue(newWorkoutLog).addOnSuccessListener {
+                                            if (showNoteField && noteText.isNotBlank()) {
+                                                // Construct the note data with an id field
+                                                val noteData = mapOf(
+                                                    "id" to logId,
+                                                    "note" to noteText
+                                                )
+                                                notesDbRef.child(logId).setValue(noteData)
+                                            }
+
+                                            val pointsData = mapOf(
+                                                "id" to logId,
+                                                "timestamp" to System.currentTimeMillis(),
+                                                "name" to newWorkoutName,
+                                                "points" to 25 // Points for the workout
+                                            )
+                                            val pointsDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/points")
+                                            pointsDbRef.child(logId).setValue(pointsData)
+
+                                            // Update the UI and close the dialog
+                                            updateWorkoutLogsList(workoutLogs + listOf(newWorkoutLog))
+                                            successMessage.value = "Workout added successfully."
+                                            showAddWorkoutDialog = false
+                                            resetAddWorkoutDialogFields()
+                                        }.addOnFailureListener {
+                                            errorMessage.value = "Error saving workout: ${it.message}"
+                                        }
+                                    }
+                                )
                             )
 
                             Spacer(modifier = Modifier.height(8.dp))
@@ -266,7 +415,105 @@ fun SettingsScreen() {
                             TextField(
                                 value = newWorkoutDistance,
                                 onValueChange = { newWorkoutDistance = it },
-                                label = { Text("Distance (km)") }
+                                label = { Text("Distance (km)") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions.Default.copy(
+                                    imeAction = androidx.compose.ui.text.input.ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = {
+                                        var isInputValid = true
+                                        val errorMessages = mutableListOf<String>()
+
+                                        // Validate Name
+                                        if (newWorkoutName.isBlank()) {
+                                            errorMessages.add("Workout name cannot be blank.")
+                                            isInputValid = false
+                                        }
+
+                                        // Validate Date
+                                        val (isDateValid, dateErrorMsg) = isValidDate(newWorkoutDate)
+                                        if (!isDateValid) {
+                                            errorMessages.add(dateErrorMsg)
+                                            isInputValid = false
+                                        }
+
+                                        // Validate Duration for certain workout types
+                                        if (newWorkoutType in listOf("cardio", "stretching") && !isValidDuration(newWorkoutDuration).first) {
+                                            errorMessages.add(isValidDuration(newWorkoutDuration).second)
+                                            isInputValid = false
+                                        }
+
+                                        // Validate Sets and Reps for certain workout types
+                                        if (newWorkoutType in listOf("olympic_weightlifting", "powerlifting", "strongman", "strength", "plyometrics")) {
+                                            val (isSetsValid, setsErrorMsg) = isValidIntField("", newWorkoutSets, "Sets")
+                                            if (!isSetsValid) {
+                                                errorMessages.add(setsErrorMsg)
+                                                isInputValid = false
+                                            }
+
+                                            val (isRepsValid, repsErrorMsg) = isValidIntField("", newWorkoutReps, "Reps")
+                                            if (!isRepsValid) {
+                                                errorMessages.add(repsErrorMsg)
+                                                isInputValid = false
+                                            }
+                                        }
+
+                                        // Validate Note
+                                        if (showNoteField && noteText.isBlank()) {
+                                            errorMessages.add("Note cannot be blank.")
+                                            isInputValid = false
+                                        }
+
+                                        if (!isInputValid) {
+                                            // Display the first error message
+                                            errorMessage.value = errorMessages.firstOrNull()
+                                            return@KeyboardActions
+                                        }
+
+                                        // Proceed to save the workout log, notes, and points
+                                        val newWorkoutLog = WorkoutLog(
+                                            id = logId,
+                                            name = newWorkoutName,
+                                            type = newWorkoutType,
+                                            muscle = newWorkoutMuscle,
+                                            difficulty = "user entry", // Default difficulty
+                                            duration = newWorkoutDuration,
+                                            distance = newWorkoutDistance.ifBlank { null },
+                                            sets = newWorkoutSets,
+                                            reps = newWorkoutReps,
+                                            date = newWorkoutDate
+                                        )
+
+                                        logsDbRef.child(logId).setValue(newWorkoutLog).addOnSuccessListener {
+                                            if (showNoteField && noteText.isNotBlank()) {
+                                                // Construct the note data with an id field
+                                                val noteData = mapOf(
+                                                    "id" to logId,
+                                                    "note" to noteText
+                                                )
+                                                notesDbRef.child(logId).setValue(noteData)
+                                            }
+
+                                            val pointsData = mapOf(
+                                                "id" to logId,
+                                                "timestamp" to System.currentTimeMillis(),
+                                                "name" to newWorkoutName,
+                                                "points" to 25 // Points for the workout
+                                            )
+                                            val pointsDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/points")
+                                            pointsDbRef.child(logId).setValue(pointsData)
+
+                                            // Update the UI and close the dialog
+                                            updateWorkoutLogsList(workoutLogs + listOf(newWorkoutLog))
+                                            successMessage.value = "Workout added successfully."
+                                            showAddWorkoutDialog = false
+                                            resetAddWorkoutDialogFields()
+                                        }.addOnFailureListener {
+                                            errorMessage.value = "Error saving workout: ${it.message}"
+                                        }
+                                    }
+                                )
                             )
                         }
                         "stretching" -> {
@@ -289,7 +536,106 @@ fun SettingsScreen() {
                             TextField(
                                 value = newWorkoutSets,
                                 onValueChange = { newWorkoutSets = it },
-                                label = { Text("Sets") }
+                                label = { Text("Sets") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions.Default.copy(
+                                    imeAction = androidx.compose.ui.text.input.ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = {
+                                        var isInputValid = true
+                                        val errorMessages = mutableListOf<String>()
+
+                                        // Validate Name
+                                        if (newWorkoutName.isBlank()) {
+                                            errorMessages.add("Workout name cannot be blank.")
+                                            isInputValid = false
+                                        }
+
+                                        // Validate Date
+                                        val (isDateValid, dateErrorMsg) = isValidDate(newWorkoutDate)
+                                        if (!isDateValid) {
+                                            errorMessages.add(dateErrorMsg)
+                                            isInputValid = false
+                                        }
+
+                                        // Validate Duration for certain workout types
+                                        if (newWorkoutType in listOf("cardio", "stretching") && !isValidDuration(newWorkoutDuration).first) {
+                                            errorMessages.add(isValidDuration(newWorkoutDuration).second)
+                                            isInputValid = false
+                                        }
+
+                                        // Validate Sets and Reps for certain workout types
+                                        if (newWorkoutType in listOf("olympic_weightlifting", "powerlifting", "strongman", "strength", "plyometrics")) {
+                                            val (isSetsValid, setsErrorMsg) = isValidIntField("", newWorkoutSets, "Sets")
+                                            if (!isSetsValid) {
+                                                errorMessages.add(setsErrorMsg)
+                                                isInputValid = false
+                                            }
+
+                                            val (isRepsValid, repsErrorMsg) = isValidIntField("", newWorkoutReps, "Reps")
+                                            if (!isRepsValid) {
+                                                errorMessages.add(repsErrorMsg)
+                                                isInputValid = false
+                                            }
+                                        }
+
+                                        // Validate Note
+                                        if (showNoteField && noteText.isBlank()) {
+                                            errorMessages.add("Note cannot be blank.")
+                                            isInputValid = false
+                                        }
+
+                                        if (!isInputValid) {
+                                            // Display the first error message
+                                            errorMessage.value = errorMessages.firstOrNull()
+                                            return@KeyboardActions
+                                        }
+
+                                        // Proceed to save the workout log, notes, and points
+                                        val newWorkoutLog = WorkoutLog(
+                                            id = logId,
+                                            name = newWorkoutName,
+                                            type = newWorkoutType,
+                                            muscle = newWorkoutMuscle,
+                                            difficulty = "user entry", // Default difficulty
+                                            duration = newWorkoutDuration,
+                                            distance = newWorkoutDistance.ifBlank { null },
+                                            sets = newWorkoutSets,
+                                            reps = newWorkoutReps,
+                                            date = newWorkoutDate
+                                        )
+
+                                        logsDbRef.child(logId).setValue(newWorkoutLog).addOnSuccessListener {
+                                            if (showNoteField && noteText.isNotBlank()) {
+                                                // Construct the note data with an id field
+                                                val noteData = mapOf(
+                                                    "id" to logId,
+                                                    "note" to noteText
+                                                )
+                                                notesDbRef.child(logId).setValue(noteData)
+                                            }
+
+                                            val pointsData = mapOf(
+                                                "id" to logId,
+                                                "timestamp" to System.currentTimeMillis(),
+                                                "name" to newWorkoutName,
+                                                "points" to 25 // Points for the workout
+                                            )
+                                            val pointsDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/points")
+                                            pointsDbRef.child(logId).setValue(pointsData)
+
+                                            // Update the UI and close the dialog
+                                            updateWorkoutLogsList(workoutLogs + listOf(newWorkoutLog))
+                                            successMessage.value = "Workout added successfully."
+                                            showAddWorkoutDialog = false
+                                            resetAddWorkoutDialogFields()
+                                        }.addOnFailureListener {
+                                            errorMessage.value = "Error saving workout: ${it.message}"
+                                        }
+                                    }
+                                )
+
                             )
 
                             Spacer(modifier = Modifier.height(8.dp))
@@ -297,7 +643,105 @@ fun SettingsScreen() {
                             TextField(
                                 value = newWorkoutReps,
                                 onValueChange = { newWorkoutReps = it },
-                                label = { Text("Reps") }
+                                singleLine = true,
+                                label = { Text("Reps") },
+                                keyboardOptions = KeyboardOptions.Default.copy(
+                                    imeAction = androidx.compose.ui.text.input.ImeAction.Done
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onDone = {
+                                        var isInputValid = true
+                                        val errorMessages = mutableListOf<String>()
+
+                                        // Validate Name
+                                        if (newWorkoutName.isBlank()) {
+                                            errorMessages.add("Workout name cannot be blank.")
+                                            isInputValid = false
+                                        }
+
+                                        // Validate Date
+                                        val (isDateValid, dateErrorMsg) = isValidDate(newWorkoutDate)
+                                        if (!isDateValid) {
+                                            errorMessages.add(dateErrorMsg)
+                                            isInputValid = false
+                                        }
+
+                                        // Validate Duration for certain workout types
+                                        if (newWorkoutType in listOf("cardio", "stretching") && !isValidDuration(newWorkoutDuration).first) {
+                                            errorMessages.add(isValidDuration(newWorkoutDuration).second)
+                                            isInputValid = false
+                                        }
+
+                                        // Validate Sets and Reps for certain workout types
+                                        if (newWorkoutType in listOf("olympic_weightlifting", "powerlifting", "strongman", "strength", "plyometrics")) {
+                                            val (isSetsValid, setsErrorMsg) = isValidIntField("", newWorkoutSets, "Sets")
+                                            if (!isSetsValid) {
+                                                errorMessages.add(setsErrorMsg)
+                                                isInputValid = false
+                                            }
+
+                                            val (isRepsValid, repsErrorMsg) = isValidIntField("", newWorkoutReps, "Reps")
+                                            if (!isRepsValid) {
+                                                errorMessages.add(repsErrorMsg)
+                                                isInputValid = false
+                                            }
+                                        }
+
+                                        // Validate Note
+                                        if (showNoteField && noteText.isBlank()) {
+                                            errorMessages.add("Note cannot be blank.")
+                                            isInputValid = false
+                                        }
+
+                                        if (!isInputValid) {
+                                            // Display the first error message
+                                            errorMessage.value = errorMessages.firstOrNull()
+                                            return@KeyboardActions
+                                        }
+
+                                        // Proceed to save the workout log, notes, and points
+                                        val newWorkoutLog = WorkoutLog(
+                                            id = logId,
+                                            name = newWorkoutName,
+                                            type = newWorkoutType,
+                                            muscle = newWorkoutMuscle,
+                                            difficulty = "user entry", // Default difficulty
+                                            duration = newWorkoutDuration,
+                                            distance = newWorkoutDistance.ifBlank { null },
+                                            sets = newWorkoutSets,
+                                            reps = newWorkoutReps,
+                                            date = newWorkoutDate
+                                        )
+
+                                        logsDbRef.child(logId).setValue(newWorkoutLog).addOnSuccessListener {
+                                            if (showNoteField && noteText.isNotBlank()) {
+                                                // Construct the note data with an id field
+                                                val noteData = mapOf(
+                                                    "id" to logId,
+                                                    "note" to noteText
+                                                )
+                                                notesDbRef.child(logId).setValue(noteData)
+                                            }
+
+                                            val pointsData = mapOf(
+                                                "id" to logId,
+                                                "timestamp" to System.currentTimeMillis(),
+                                                "name" to newWorkoutName,
+                                                "points" to 25 // Points for the workout
+                                            )
+                                            val pointsDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/points")
+                                            pointsDbRef.child(logId).setValue(pointsData)
+
+                                            // Update the UI and close the dialog
+                                            updateWorkoutLogsList(workoutLogs + listOf(newWorkoutLog))
+                                            successMessage.value = "Workout added successfully."
+                                            showAddWorkoutDialog = false
+                                            resetAddWorkoutDialogFields()
+                                        }.addOnFailureListener {
+                                            errorMessage.value = "Error saving workout: ${it.message}"
+                                        }
+                                    }
+                                )
                             )
                         }
                     }
@@ -309,7 +753,105 @@ fun SettingsScreen() {
                         TextField(
                             value = noteText,
                             onValueChange = { noteText = it },
-                            label = { Text("Note") }
+                            label = { Text("Note") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions.Default.copy(
+                                imeAction = androidx.compose.ui.text.input.ImeAction.Done
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onDone = {
+                                    var isInputValid = true
+                                    val errorMessages = mutableListOf<String>()
+
+                                    // Validate Name
+                                    if (newWorkoutName.isBlank()) {
+                                        errorMessages.add("Workout name cannot be blank.")
+                                        isInputValid = false
+                                    }
+
+                                    // Validate Date
+                                    val (isDateValid, dateErrorMsg) = isValidDate(newWorkoutDate)
+                                    if (!isDateValid) {
+                                        errorMessages.add(dateErrorMsg)
+                                        isInputValid = false
+                                    }
+
+                                    // Validate Duration for certain workout types
+                                    if (newWorkoutType in listOf("cardio", "stretching") && !isValidDuration(newWorkoutDuration).first) {
+                                        errorMessages.add(isValidDuration(newWorkoutDuration).second)
+                                        isInputValid = false
+                                    }
+
+                                    // Validate Sets and Reps for certain workout types
+                                    if (newWorkoutType in listOf("olympic_weightlifting", "powerlifting", "strongman", "strength", "plyometrics")) {
+                                        val (isSetsValid, setsErrorMsg) = isValidIntField("", newWorkoutSets, "Sets")
+                                        if (!isSetsValid) {
+                                            errorMessages.add(setsErrorMsg)
+                                            isInputValid = false
+                                        }
+
+                                        val (isRepsValid, repsErrorMsg) = isValidIntField("", newWorkoutReps, "Reps")
+                                        if (!isRepsValid) {
+                                            errorMessages.add(repsErrorMsg)
+                                            isInputValid = false
+                                        }
+                                    }
+
+                                    // Validate Note
+                                    if (showNoteField && noteText.isBlank()) {
+                                        errorMessages.add("Note cannot be blank.")
+                                        isInputValid = false
+                                    }
+
+                                    if (!isInputValid) {
+                                        // Display the first error message
+                                        errorMessage.value = errorMessages.firstOrNull()
+                                        return@KeyboardActions
+                                    }
+
+                                    // Proceed to save the workout log, notes, and points
+                                    val newWorkoutLog = WorkoutLog(
+                                        id = logId,
+                                        name = newWorkoutName,
+                                        type = newWorkoutType,
+                                        muscle = newWorkoutMuscle,
+                                        difficulty = "user entry", // Default difficulty
+                                        duration = newWorkoutDuration,
+                                        distance = newWorkoutDistance.ifBlank { null },
+                                        sets = newWorkoutSets,
+                                        reps = newWorkoutReps,
+                                        date = newWorkoutDate
+                                    )
+
+                                    logsDbRef.child(logId).setValue(newWorkoutLog).addOnSuccessListener {
+                                        if (showNoteField && noteText.isNotBlank()) {
+                                            // Construct the note data with an id field
+                                            val noteData = mapOf(
+                                                "id" to logId,
+                                                "note" to noteText
+                                            )
+                                            notesDbRef.child(logId).setValue(noteData)
+                                        }
+
+                                        val pointsData = mapOf(
+                                            "id" to logId,
+                                            "timestamp" to System.currentTimeMillis(),
+                                            "name" to newWorkoutName,
+                                            "points" to 25 // Points for the workout
+                                        )
+                                        val pointsDbRef = FirebaseDatabase.getInstance().getReference("users/$userId/points")
+                                        pointsDbRef.child(logId).setValue(pointsData)
+
+                                        // Update the UI and close the dialog
+                                        updateWorkoutLogsList(workoutLogs + listOf(newWorkoutLog))
+                                        successMessage.value = "Workout added successfully."
+                                        showAddWorkoutDialog = false
+                                        resetAddWorkoutDialogFields()
+                                    }.addOnFailureListener {
+                                        errorMessage.value = "Error saving workout: ${it.message}"
+                                    }
+                                }
+                            )
                         )
                     }else {
                         noteText = ""
@@ -493,6 +1035,7 @@ fun SettingsScreen() {
                     .fillMaxSize(),
                 color = MaterialTheme.colorScheme.background
             ) {
+                SnackbarHost(hostState = snackbarHostState)
                 Column {
 
                     // Snackbar for displaying errors
@@ -1296,6 +1839,7 @@ fun CustomDropDownMenu(
     group: Array<String>,
     onItemSelected: (String) -> Unit,
     expanded: Boolean,
+    label: String,
     onExpandedChange: (Boolean) -> Unit
 ) {
     ExposedDropdownMenuBox(
@@ -1303,11 +1847,11 @@ fun CustomDropDownMenu(
         onExpandedChange = onExpandedChange
     ) {
         TextField(
-            value = selectedText,
+            value = selectedText.toTitleCase(),
             onValueChange = { },
             readOnly = true,
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            label = { Text("Workout Type", fontSize = 16.sp) },
+            label = { Text(label, fontSize = 16.sp) },
             modifier = Modifier.menuAnchor()
         )
 
@@ -1317,7 +1861,7 @@ fun CustomDropDownMenu(
         ) {
             group.forEach { item ->
                 DropdownMenuItem(
-                    text = { Text(text = item, fontSize = 16.sp) },
+                    text = { Text(text = item.toTitleCase(), fontSize = 16.sp) },
                     onClick = {
                         onItemSelected(item)
                         onExpandedChange(false)
